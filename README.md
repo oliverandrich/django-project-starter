@@ -1,4 +1,4 @@
-# django-startproject
+# django-project-starter
 
 > Django startproject template for Django projects with batteries included and nice tooling.
 
