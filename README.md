@@ -110,7 +110,6 @@ Or when run as a [12-Factor application](https://12factor.net).
 
 The `docker/Dockerfile` uses a multi stage process to embrace caching for building the container images.
 
-## Contributing
+## License
 
-Contributions, issues and feature requests are welcome!
-Feel free to check [issues page](https://github.com/oliverandrich/django-startproject/issues).
+This software is licensed under [MIT license](./LICENSE).
