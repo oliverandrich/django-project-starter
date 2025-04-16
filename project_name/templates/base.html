@@ -1,0 +1,25 @@
+{% load django_browser_reload django_htmx tailwind_cli %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Home{% endblock %}</title>
+        {% tailwind_css %}
+        {% htmx_script %}
+        {% django_browser_reload_script %}
+        {% block extra_head %}{% endblock %}
+    </head>
+    <body hx-boost="true">
+        {% block content %}
+            <div class="min-h-screen flex justify-center items-center">
+                <div class="text-5xl bg-red-500 btn">
+                    Django + Tailwind + HTMX = ❤️
+                </div>
+            </div>
+        {% endblock content %}
+        {% block extra_js %}{% endblock %}
+        <a href="bla">bla</a>
+    </body>
+</html>
