@@ -49,7 +49,16 @@ source = ["{{ project_name }}"]
 branch = true
 
 [tool.coverage.report]
-exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+show_missing = true
+exclude_lines = [    
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "raise NotImplementedError",
+  "pass",
+  "if __name__ == .__main__.:",
+]
+omit = ["*/migrations/*", "*/tests/*", "*/conftest.py"]
 
 [tool.ruff]
 target-version = "py313"
