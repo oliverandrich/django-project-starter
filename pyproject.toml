@@ -6,7 +6,6 @@ dependencies = [
   "django-browser-reload>=1.17.0",
   "django-htmx>=1.23.0",
   "django-typer[rich]>=2.4.0",
-  "django-unique-user-email>=23.2",
   "django[argon2]>=5.2",
   "environs[django]>=11.2.1",
   "heroicons>=2.9.0",

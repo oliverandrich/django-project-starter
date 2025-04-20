@@ -65,7 +65,6 @@ INSTALLED_APPS += [
     "django_htmx",
     "django_tailwind_cli",
     "django_extensions",
-    "unique_user_email",
 ]
 
 # Our apps
@@ -146,7 +145,6 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
 # Authentication backends
 # https://docs.djangoproject.com/en/5.1/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
-    "unique_user_email.backend.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
