@@ -221,3 +221,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # django-tailwind-cli settings
 # https://django-tailwind-cli.andrich.me/settings/
 TAILWIND_CLI_USE_DAISY_UI = True
+
+# django-rich
+# https://pypi.org/project/django-rich/
+TEST_RUNNER = "django_rich.test.RichRunner"

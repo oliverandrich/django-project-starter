@@ -25,6 +25,7 @@ dev = [
   "model-bakery>=1.19.5",
   "coverage[toml]",
   "django-test-plus",
+  "django-rich",
 ]
 
 [tool.mypy]
