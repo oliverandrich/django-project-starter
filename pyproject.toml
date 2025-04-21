@@ -23,25 +23,14 @@ dev = [
   "faker>=33.1.0",
   "ipdb>=0.13.13",
   "model-bakery>=1.19.5",
-  "pytest>=8.3.3",
-  "pytest-cov>=6.0.0",
-  "pytest-django>=4.9.0",
-  "pytest-mock>=3.14.0",
+  "coverage[toml]"
 ]
-
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-typeCheckingMode = "basic"
 
 [tool.mypy]
 plugins = ["mypy_django_plugin.main"]
 
 [tool.django-stubs]
 django_settings_module = "{{ project_name }}.settings"
-
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "{{ project_name }}.settings"
 
 [tool.coverage.run]
 source = ["{{ project_name }}"]

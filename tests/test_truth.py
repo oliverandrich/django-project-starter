@@ -1,2 +1,6 @@
-def test_truth():
-    assert True
+from django.test import TestCase
+
+
+class TruthTest(TestCase):
+    def test_truth(self):
+        self.assertTrue(True)

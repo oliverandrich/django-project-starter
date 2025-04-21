@@ -67,9 +67,6 @@ alias runserver := debugserver
     uvx --with pre-commit-uv pre-commit run --all-files
 
 # run test suite
-@test *ARGS: check_uv
-    uv run pytest {{ ARGS }}
-
-# run test suite with coverage
-@coverage *ARGS: check_uv
-    uv run pytest --cov --cov-report=html --cov-report=term {{ ARGS }}
+@test: check_uv
+    uv run python -m coverage run -m django test --settings tests.settings
+    uv run python -m coverage report
