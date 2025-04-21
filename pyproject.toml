@@ -23,7 +23,8 @@ dev = [
   "faker>=33.1.0",
   "ipdb>=0.13.13",
   "model-bakery>=1.19.5",
-  "coverage[toml]"
+  "coverage[toml]",
+  "django-test-plus",
 ]
 
 [tool.mypy]
