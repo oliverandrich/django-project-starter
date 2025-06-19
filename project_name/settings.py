@@ -37,15 +37,15 @@ else:
 
 # A list of strings representing the host/domain names that this Django site can serve.
 # https://docs.djangoproject.com/en/5.1/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+ALLOWED_HOSTS: list[str] = env.list("ALLOWED_HOSTS", default=[])
 
 # A list of IP addresses that are allowed to access the django debug toolbar.
 # https://docs.djangoproject.com/en/5.1/ref/settings/#internal-ips
-INTERNAL_IPS = env.list("INTERNAL_IPS", default=[])
+INTERNAL_IPS: list[str] = env.list("INTERNAL_IPS", default=[])
 
 # A list of trusted origins for unsafe requests (e.g. POST).
 # https://docs.djangoproject.com/en/5.1/ref/settings/#csrf-trusted-origins
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+CSRF_TRUSTED_ORIGINS: list[str] = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Application definition
 # https://docs.djangoproject.com/en/5.1/ref/settings/#installed-apps
