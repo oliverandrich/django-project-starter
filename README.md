@@ -11,15 +11,15 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 ## Features
 
 - Python 3.13
-- Django 5.2.x
+- Django 6.0
 - django-htmx
 - django-tailwind-cli
 - django-typer
 - environs\[django\]
 - heroicons
 - whitenoise
-- [Optimzed SQLite settings](https://gcollazo.com/optimal-sqlite-settings-for-django/)
-- [Argon2 password hashing](https://docs.djangoproject.com/en/4.1/topics/auth/passwords/)
+- Production-ready SQLite settings via [dj-lite](https://github.com/adamghill/dj-lite)
+- [Argon2 password hashing](https://docs.djangoproject.com/en/6.0/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
 - A local install of alpine.js and htmx.
@@ -27,7 +27,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 
 ### Development tools
 
-- django-stubs
+- django-types + pyright
 - django-browser-reload
 - model-bakery & faker for smarter testing fixtures
 - pre-commit setup inspired by [Boost your Django DX](https://adamchainz.gumroad.com/l/byddx)
@@ -38,10 +38,10 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 ## Install
 
 ```shell
-# Pull the template from Codeberg...
+# Pull the template from Codeberg
 $ uv run --with=django django-admin startproject \
     --extension=ini,py,toml,sh \
-    --template=https://github.com/oliverandrich/django-project-starter/archive/main.zip \
+    --template=https://codeberg.org/oliverandrich/django-project-starter/archive/main.zip \
     example_project
 
 # Setup the project
@@ -93,7 +93,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | ALLOWED_HOSTS        | []                                                | settings.py   |
 | CACHE_URL            | "locmem://"                                       | settings.py   |
 | CSRF_TRUSTED_ORIGINS | []                                                | settings.py   |
-| DATABASE_URL         | "sqlite:///db.sqlite3"                            | settings.py   |
+| DATABASE_URL         | SQLite via dj-lite                                | settings.py   |
 | DEBUG                | False                                             | settings.py   |
 | EMAIL_URL            | "console:"                                        | settings.py   |
 | INTERNAL_IPS         | []                                                | settings.py   |
