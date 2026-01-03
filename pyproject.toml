@@ -6,12 +6,12 @@ dependencies = [
   "django-browser-reload>=1.17.0",
   "django-htmx>=1.23.0",
   "django-typer[rich]>=2.4.0",
-  "django[argon2]>=5.2",
+  "django[argon2]>=6.0",
   "environs[django]>=11.2.1",
   "heroicons>=2.9.0",
   "whitenoise>=6.8.2",
-  "django-stubs-ext>=5.1.1",
   "django-tailwind-cli[django-extensions]>=4.2.2",
+  "dj-lite>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -19,7 +19,7 @@ granian = ["granian[pname]>=1.6.4"]
 
 [dependency-groups]
 dev = [
-  "django-stubs[compatible-mypy]>=5.1.1",
+  "django-types>=0.19.1",
   "faker>=33.1.0",
   "ipdb>=0.13.13",
   "model-bakery>=1.19.5",
@@ -28,11 +28,20 @@ dev = [
   "django-rich",
 ]
 
-[tool.mypy]
-plugins = ["mypy_django_plugin.main"]
-
-[tool.django-stubs]
-django_settings_module = "{{ project_name }}.settings"
+[tool.pyright]
+typeCheckingMode = "basic"
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+include = ["{{ project_name }}", "tests"]
+exclude = [
+  "**/migrations",
+  "**/node_modules",
+  "**/__pycache__",
+  ".venv"
+]
+reportMissingImports = true
+reportMissingTypeStubs = false
 
 [tool.coverage.run]
 source = ["{{ project_name }}"]
