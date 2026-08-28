@@ -115,7 +115,7 @@ To create a new Django project using this template:
 ```bash
 uv run --with=django django-admin startproject \
     --extension=ini,py,toml,sh \
-    --template=https://codeberg.org/oliverandrich/django-project-starter/archive/main.zip \
+    --template=https://github.com/oliverandrich/django-project-starter/archive/refs/heads/main.zip \
     your_project_name
 ```
 

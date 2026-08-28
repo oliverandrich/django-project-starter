@@ -38,10 +38,10 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 ## Install
 
 ```shell
-# Pull the template from Codeberg
+# Pull the template from GitHub
 $ uv run --with=django django-admin startproject \
     --extension=ini,py,toml,sh \
-    --template=https://codeberg.org/oliverandrich/django-project-starter/archive/main.zip \
+    --template=https://github.com/oliverandrich/django-project-starter/archive/refs/heads/main.zip \
     example_project
 
 # Setup the project
