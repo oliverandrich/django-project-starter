@@ -86,3 +86,4 @@ yarn-error.log
 
 # django-tailwind-cli
 .django_tailwind_cli
+assets/css/tailwind.css
