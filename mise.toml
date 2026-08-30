@@ -1,0 +1,83 @@
+# This file is rendered twice and must survive both. `django-admin startproject` runs it through
+# Django's template engine (`toml` is in the documented `--extension` list), and mise renders its
+# own config as Tera. Both spell interpolation with doubled braces, so this file must contain
+# none: a Django placeholder here would break `mise run` in the template repository, where
+# nothing substitutes it. template_tests/test_generation.py holds this file to that.
+
+[tools]
+# The range pyproject asks for, not a patch pin: a template goes stale otherwise. Pinned at all
+# because a global mise config may name a newer Python, and `mise which python` would then hand
+# uv an interpreter this project does not support.
+python = "3.13"
+uv = "latest"
+# Only needed for `mise run dev`; nothing else in the toolchain uses it.
+# It runs its own tmux server on a socket named after the project
+# directory. Every client of that socket needs this version — a hand-run `tmux -L <project>
+# attach`, and the dev script itself: its `has-session` check discards stderr, so a "protocol
+# version mismatch" would surface as the far more confusing "Session is not running".
+tmux = "3.7b"
+
+# Task files live in two places. `.mise/tasks` is the default and ships with every generated
+# project; `template_tests/tasks` holds the tasks that only make sense in this repository and is
+# excluded from `startproject`, so a generated project simply finds nothing there — no error, no
+# stray task. Listing `.mise/tasks` is not optional: `includes` replaces the defaults.
+[task_config]
+includes = [".mise/tasks", "template_tests/tasks"]
+
+[env]
+# create = false on purpose: `mise run bootstrap` builds the venv through uv, so mise must not
+# put an empty one there first — that would hide a bootstrap that was never run.
+_.python.venv = { path = ".venv", create = false }
+# A missing .env is fine; `mise run bootstrap` writes one.
+_.file = ".env"
+# uv downloads a managed CPython of its own when no interpreter matches, which would quietly
+# undo the pin above. Fail instead, so a version mismatch is visible.
+UV_PYTHON_DOWNLOADS = "never"
+
+[tasks.upgrade]
+description = "Upgrade/install all dependencies defined in pyproject.toml"
+# --python for the same reason as in the bootstrap task: without it uv picks the interpreter
+# itself whenever .venv is missing or on the wrong version.
+run = 'uv sync --upgrade --all-extras --python "$(mise which python)"'
+
+[tasks.migrate]
+description = "Run database migrations"
+run = "uv run python manage.py migrate"
+
+[tasks.makemigrations]
+description = "Create database migrations"
+run = "uv run python manage.py makemigrations"
+
+[tasks.debugserver]
+description = "Start the development server with Tailwind watching"
+alias = "runserver"
+run = "uv run python manage.py tailwind runserver"
+
+[tasks.shell]
+description = "Start an interactive shell (shell_plus)"
+run = "uv run python manage.py shell_plus"
+
+[tasks.manage]
+description = "Run manage.py for everything the other tasks don't cover"
+run = "uv run python manage.py"
+
+[tasks.test]
+description = "Run the test suite with coverage"
+# No --settings: manage.py already points at the project's settings, which is where TEST_RUNNER
+# lives. The justfile this replaced named a tests.settings module that never existed.
+run = [
+  "uv run python -m coverage run manage.py test",
+  "uv run python -m coverage report",
+]
+
+[tasks.lint]
+description = "Run pre-commit rules on all files"
+run = "uvx --with pre-commit-uv pre-commit run --all-files"
+
+[tasks.push]
+description = "Push commits and tags to remote"
+run = "git push && git push --tags"
+
+[tasks.pull]
+description = "Pull changes from remote with rebase"
+run = "git pull --rebase"

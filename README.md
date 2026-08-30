@@ -14,7 +14,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - Django 6.0
 - django-htmx
 - django-tailwind-cli
-- django-typer
+- django-click
 - environs\[django\]
 - heroicons
 - whitenoise
@@ -33,7 +33,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - pre-commit setup inspired by [Boost your Django DX](https://adamchainz.gumroad.com/l/byddx)
 - sane ruff configuration
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- [just](https://github.com/casey/just) for project management and maintenance
+- [mise](https://mise.jdx.dev) for the toolchain and for project tasks
 
 ## Install
 
@@ -41,48 +41,60 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 # Pull the template from GitHub
 $ uv run --with=django django-admin startproject \
     --extension=ini,py,toml,sh \
+    --exclude=template_tests \
     --template=https://github.com/oliverandrich/django-project-starter/archive/refs/heads/main.zip \
     example_project
 
-# Setup the project
-$ just boostrap
-
-# Start dev server
-$ just runserver
+$ cd example_project
+$ mise trust          # once, so mise reads mise.toml
+$ mise run bootstrap  # .env, dependencies, first CSS build, git, pre-commit hook
+$ mise run runserver
 ```
+
+`--exclude` is not optional, and its effect is indirect. Django drops **every** directory whose
+name starts with a dot unless the flag is passed *at all* — so without it `.mise/` never arrives
+and the generated project carries a `mise.toml` pointing at file tasks that were never copied.
+Passing it switches Django to the explicit list, and `template_tests` is what belongs on that
+list: the published archive is `git archive` output, so it holds tracked files and nothing else.
+
+Generating from a local checkout instead of the URL is different — a virtualenv and tool caches
+are sitting on disk there, and git-ignored files are not filtered out by anything. Add
+`--exclude=.venv --exclude=.idea --exclude=.claude --exclude=.pytest_cache --exclude=.ruff_cache`
+in that case, or generate from the URL and avoid the question.
 
 ## Usage
 
 ```shell
 # Upgrade/install all dependencies defined in pyproject.toml
-just upgrade
+mise run upgrade
 
 # Run database migrations
-just migrate
+mise run migrate
 
 # Create database migrations
-just makemigrations
+mise run makemigrations
 
 # Start debugserver
-just runserver
+mise run runserver
 # or
-just debugserver
+mise run debugserver
 
 # Start the interactive django shell
-just shell
+mise run shell
 
 # Start manage.py for all cases not covered by other commands
-just manage ...
+mise run manage ...
 
 # Run pre-commit rules on all files
-just lint
+mise run lint
 
-# Run test suite
-just test
-
-# run test suite with code coverage analysis
-just coverage
+# Run the test suite with coverage
+mise run test
 ```
+
+`mise run dev` opens a three-pane tmux session (agent, `debugserver`, a free shell); `mise run
+dev stop` shuts it down again. It runs on its own tmux server, named after the project
+directory, so it is reachable from a plain shell with `tmux -L <project> attach`.
 
 ## Environemt Variables for Docker and your .env file
 

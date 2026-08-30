@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Run the template's own generation tests"
+set -euo pipefail
+
+cd "${MISE_PROJECT_ROOT:-$PWD}"
+
+# uvx, not `uv run`: `uv run` parses pyproject.toml first, and this repository's is named
+# "{{ project_name }}", which uv rejects as a package name. There is no project environment here
+# and there cannot be one — see CLAUDE.md.
+exec uvx pytest template_tests "$@"

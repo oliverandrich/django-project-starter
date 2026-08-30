@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#MISE description="One-time setup of a freshly generated project: .env, dependencies, CSS, git"
+set -euo pipefail
+
+cd "${MISE_PROJECT_ROOT:-$PWD}"
+
+green() { printf '\033[32m✓\033[0m %s\n' "$1"; }
+
+# -f, not -e: the justfile this replaced appended its block unconditionally, so a second run
+# left DEBUG in .env twice.
+if [ ! -f .env ]; then
+    echo "# Activate debug mode for the Django framework." >.env
+    echo "DEBUG=true" >>.env
+    green "Created .env file."
+fi
+
+# Not plain `python`: _.python.venv puts .venv/bin first, so inside a task that name already
+# resolves to the interpreter being installed into. Asking mise breaks the circle.
+python="$(mise which python)"
+uv sync --all-extras --python "$python"
+green "Installed dependencies on $("$python" --version)."
+
+uv run python manage.py tailwind build >/dev/null
+green "Built the initial tailwind.css."
+
+# Guarded, because this task also exists in the template repository, where re-initialising git
+# and committing everything would be destructive rather than helpful.
+if [ ! -d .git ]; then
+    git init --quiet
+    git add -A .
+    git commit --quiet -m "Initial commit"
+    green "Initialised the git repository and made the initial commit."
+fi
+
+uvx --with pre-commit-uv pre-commit install >/dev/null
+green "Installed the pre-commit hook."
+
+echo
+printf '\033[32mHappy coding!\033[0m\n'
