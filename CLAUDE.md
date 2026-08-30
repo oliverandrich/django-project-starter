@@ -85,7 +85,7 @@ This Django project uses a **single folder layout** where the main application l
 ### Technology Stack
 
 - **Frontend**: HTMX + Tailwind CSS (via django-tailwind-cli with DaisyUI)
-- **Backend**: Django 6.0 with django-htmx, django-click for CLI commands
+- **Backend**: Django 6.1 with django-htmx, django-click for CLI commands
 - **Database**: SQLite with optimized settings (can switch to PostgreSQL/MySQL via DATABASE_URL)
 - **Security**: Argon2 password hashing, environment-based configuration
 - **Development Tools**:

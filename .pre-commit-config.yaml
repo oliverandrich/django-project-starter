@@ -30,10 +30,12 @@ repos:
         args: [--py313-plus]
 
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: 1.29.1
+    # 1.31.0 or newer: earlier releases do not know --target-version 6.1. The pinned revision is
+    # what pre-commit runs, so checking `uvx django-upgrade --help` says nothing about this.
+    rev: 1.32.0
     hooks:
       - id: django-upgrade
-        args: [--target-version, "6.0"]
+        args: [--target-version, "6.1"]
 
   - repo: https://github.com/RobertCraigie/pyright-python
     rev: v1.1.395
@@ -44,4 +46,6 @@ repos:
     rev: "1.7.0"
     hooks:
       - id: djade
+        # 6.0, not 6.1: djade's newest known target is 6.0. Not a forgotten pin -- raise it when
+        # djade learns 6.1.
         args: [--target-version, "6.0"]

@@ -11,7 +11,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 ## Features
 
 - Python 3.13
-- Django 6.0
+- Django 6.1
 - django-htmx
 - django-tailwind-cli
 - django-click
@@ -19,7 +19,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - heroicons
 - whitenoise
 - Production-ready SQLite settings via [dj-lite](https://github.com/adamghill/dj-lite)
-- [Argon2 password hashing](https://docs.djangoproject.com/en/6.0/topics/auth/passwords/)
+- [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
 - A local install of alpine.js and htmx.

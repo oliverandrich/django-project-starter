@@ -9,7 +9,7 @@ dependencies = [
   # django-click asks only for click>=7.1, and management/base.py needs 8.x for the
   # context attributes its --skip-checks option is registered on.
   "click>=8.0",
-  "django[argon2]>=6.0",
+  "django[argon2]>=6.1",
   "environs[django]>=11.2.1",
   "heroicons>=2.9.0",
   "whitenoise>=6.8.2",
