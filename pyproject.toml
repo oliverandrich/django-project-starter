@@ -5,7 +5,10 @@ requires-python = ">=3.13,<4.0"
 dependencies = [
   "django-browser-reload>=1.17.0",
   "django-htmx>=1.23.0",
-  "django-typer[rich]>=2.4.0",
+  "django-click>=2.5.0",
+  # django-click asks only for click>=7.1, and management/base.py needs 8.x for the
+  # context attributes its --skip-checks option is registered on.
+  "click>=8.0",
   "django[argon2]>=6.0",
   "environs[django]>=11.2.1",
   "heroicons>=2.9.0",
@@ -49,7 +52,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-exclude_lines = [    
+exclude_lines = [
   "pragma: no cover",
   "def __repr__",
   "if self.debug:",
