@@ -78,6 +78,7 @@ This Django project uses a **single folder layout** where the main application l
 
 - **`tests/`**: Test suite using Django's test framework, run by `project_name/test_runner.py`
   (django-rich output, staticfiles without a manifest)
+- **`.github/`**: CI and Dependabot for the generated project
 - **`template_tests/`**: Tests for the template itself (`mise run test-template`). Excluded from generation — never ships into a project
 - **`assets/`**: Static assets (CSS, JS) served by WhiteNoise
 - **`logs/`**: Log files from management commands (gitignored)

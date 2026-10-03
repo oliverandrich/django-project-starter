@@ -15,6 +15,10 @@ PLACEHOLDER = "{{ project" + "_name }}"  # split so this file is not itself a te
 # references file tasks, and a file task that was not copied fails only when someone runs it.
 MISE_FILES = ("mise.toml", ".mise/tasks/dev", ".mise/tasks/bootstrap")
 
+# The generated project's GitHub setup. .github is a dot-directory, so it needs --exclude too.
+CI_WORKFLOW = ".github/workflows/ci.yml"
+GITHUB_FILES = (CI_WORKFLOW, ".github/dependabot.yml")
+
 # README.md and CLAUDE.md keep the placeholder on purpose — they document it.
 PLACEHOLDER_IS_DOCUMENTED = {"README.md", "CLAUDE.md"}
 
@@ -63,9 +67,9 @@ def test_documented_command_passes_exclude(documented_argv):
     assert any(arg.startswith(("-x", "--exclude")) for arg in documented_argv)
 
 
-def test_mise_setup_lands_in_the_generated_project(generate):
+def test_tooling_lands_in_the_generated_project(generate):
     project = generate()
-    missing = [name for name in MISE_FILES if not (project / name).is_file()]
+    missing = [name for name in MISE_FILES + GITHUB_FILES if not (project / name).is_file()]
     assert missing == []
 
 
@@ -196,14 +200,15 @@ def test_every_documented_command_is_a_real_task(generate):
     tasks is the failure that actually recurs — and it is the same class as the bug the old
     justfile shipped, a documented `coverage` recipe that was never defined.
 
-    The two documents describe different things: README.md a generated project, CLAUDE.md this
-    repository, whose task list additionally holds `test-template`.
+    The documents describe different things: README.md and the CI workflow a generated project,
+    CLAUDE.md this repository, whose task list additionally holds `test-template`.
     """
     project = generate()
 
     missing, documented = [], 0
     for document, root, where in (
         ("README.md", project, "a generated project"),
+        (CI_WORKFLOW, project, "a generated project"),
         ("CLAUDE.md", REPO_ROOT, "the template repository"),
     ):
         available = _task_names(root)

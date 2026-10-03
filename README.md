@@ -34,6 +34,8 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - sane ruff configuration
 - [uv](https://docs.astral.sh/uv/) for dependency management
 - [mise](https://mise.jdx.dev) for the toolchain and for project tasks
+- GitHub Actions CI for lint, tests and the Docker build
+- Dependabot for uv, pre-commit, GitHub Actions and Docker
 
 ## Install
 
