@@ -122,7 +122,9 @@ def _as_argv(param: click.Parameter, value: Any) -> list[str]:
             return [param.opts[0]]
         if param.secondary_opts:
             return [param.secondary_opts[0]]
-        if param.default:
+        # `is True`, not truthiness: since click 8.3 a flag without a default holds a truthy
+        # UNSET sentinel, and that flag is off.
+        if param.default is True:
             raise TypeError(
                 f"{param.name!r} is a flag that defaults to on and has no --no- form, "
                 "so call_command cannot turn it off."
