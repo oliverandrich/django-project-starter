@@ -22,6 +22,9 @@ PROJECT_DEPENDABOT = ".github/dependabot.project.yml"
 GITHUB_FILES = (CI_WORKFLOW, PROJECT_DEPENDABOT)
 UV_UPDATES = "package-ecosystem: uv"
 
+# Agent instructions. Bootstrap renames CLAUDE.project.md to CLAUDE.md, which imports AGENTS.md.
+AGENT_FILES = ("AGENTS.md", "CLAUDE.project.md")
+
 # The template repository's own CI. It ships with every project, and bootstrap removes it.
 TEMPLATE_WORKFLOW = ".github/workflows/template.yml"
 
@@ -76,7 +79,7 @@ def test_documented_command_passes_exclude(documented_argv):
 
 def test_tooling_lands_in_the_generated_project(generate):
     project = generate()
-    expected = MISE_FILES + GITHUB_FILES
+    expected = MISE_FILES + GITHUB_FILES + AGENT_FILES
     missing = [name for name in expected if not (project / name).is_file()]
     assert missing == []
 
@@ -208,8 +211,8 @@ def test_every_documented_command_is_a_real_task(generate):
     tasks is the failure that actually recurs — and it is the same class as the bug the old
     justfile shipped, a documented `coverage` recipe that was never defined.
 
-    The documents describe different things: README.md and the CI workflow a generated project,
-    CLAUDE.md this repository, whose task list additionally holds `test-template`.
+    The documents describe different things. README.md, AGENTS.md and the CI workflow describe a
+    generated project. CLAUDE.md describes this repository, whose tasks include `test-template`.
     """
     project = generate()
 
@@ -217,6 +220,7 @@ def test_every_documented_command_is_a_real_task(generate):
     for document, root, where in (
         ("README.md", project, "a generated project"),
         (CI_WORKFLOW, project, "a generated project"),
+        ("AGENTS.md", project, "a generated project"),
         ("CLAUDE.md", REPO_ROOT, "the template repository"),
     ):
         available = _task_names(root)
@@ -232,6 +236,11 @@ def test_every_documented_command_is_a_real_task(generate):
 def test_template_dependabot_skips_uv():
     """uv cannot read the placeholder pyproject.toml, so its updates would fail every week here."""
     assert UV_UPDATES not in (REPO_ROOT / ".github/dependabot.yml").read_text()
+
+
+def test_template_claude_md_imports_agents_md():
+    """Claude Code does not read AGENTS.md itself, so CLAUDE.md has to import it."""
+    assert "@AGENTS.md" in (REPO_ROOT / "CLAUDE.md").read_text().splitlines()
 
 
 def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_factory):
@@ -278,4 +287,5 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
         assert swapped not in committed
         assert swapped.replace(".project.", ".") in committed
     assert (project / "fixtures/initial.project.json").is_file()
+    assert (project / "CLAUDE.md").read_text() == "@AGENTS.md\n"
     assert UV_UPDATES in (project / ".github/dependabot.yml").read_text()

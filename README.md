@@ -36,6 +36,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - [mise](https://mise.jdx.dev) for the toolchain and for project tasks
 - GitHub Actions CI for lint, tests and the Docker build
 - Dependabot for uv, pre-commit, GitHub Actions and Docker
+- `AGENTS.md` with the project's conventions, imported by `CLAUDE.md`
 
 ## Install
 
