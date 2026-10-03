@@ -1,4 +1,4 @@
-# syntax=docker.io/docker/dockerfile:1.7-labs
+# syntax=docker.io/docker/dockerfile:1
 
 # Stage 1: General debian environment
 FROM debian:stable-slim AS linux-base
@@ -11,26 +11,27 @@ ENV UV_PROJECT_ENVIRONMENT="/venv"
 ENV UV_PYTHON_INSTALL_DIR="/python"
 # Byte compile the python files on installation
 ENV UV_COMPILE_BYTECODE=1
-# Python verision to use
+# Python version to use
 ENV UV_PYTHON=python3.14
 # Tweaking the PATH variable for easier use
 ENV PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 
-# Update debian
-RUN apt-get update
-RUN apt-get upgrade -y
-
-# Install general required dependencies
-RUN apt-get install --no-install-recommends -y tzdata
+# Update debian and install general required dependencies
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install --no-install-recommends -y ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Python environment
 FROM linux-base AS python-base
 
 # Install debian dependencies
-RUN apt-get install --no-install-recommends -y build-essential gettext
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y build-essential gettext \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install uv, pinned so a rebuild does not change the toolchain
+COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /usr/local/bin/uv
 
 # Create virtual environment and install dependencies
 COPY pyproject.toml ./
