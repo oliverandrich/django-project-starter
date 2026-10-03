@@ -73,7 +73,7 @@ This Django project uses a **single folder layout** where the main application l
   - `models.py`: Database models
   - `admin.py`: Django admin configuration
   - `templates/`: HTML templates with base template structure
-  - `management/`: Custom management commands with BaseCommand for consistent logging
+  - `management/`: Custom management commands, built on `management/base.py`
   - `locale/`: Translation files for i18n (English and German)
 
 - **`tests/`**: Test suite using Django's test framework, run by `project_name/test_runner.py`
@@ -106,7 +106,9 @@ The project uses environment variables for configuration with sensible defaults 
 
 ### Custom Features
 
-1. **BaseCommand**: All management commands should inherit from `project_name.management.base.BaseCommand` for automatic rotating log file handling
+1. **Management commands**: Write them as django-click functions decorated with `@command()` from
+   `project_name/management/base.py`. That adds a rotating log file, system checks and `--skip-checks`.
+   `@pass_logger` passes the logger in.
 2. **Template Builtins**: Common templatetags (i18n, static, heroicons) are pre-loaded
 3. **Optimized SQLite**: Includes performance optimizations for SQLite when used
 4. **Static File Serving**: WhiteNoise configured for production-ready static file serving

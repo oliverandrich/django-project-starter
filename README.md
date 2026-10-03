@@ -23,7 +23,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
 - htmx served locally through django-htmx.
-- BaseCommand class for writing management commands that log to a rotating logfile and the console if run in an interactive shell.
+- A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
 
 ### Development tools
 
