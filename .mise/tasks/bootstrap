@@ -6,10 +6,17 @@ cd "${MISE_PROJECT_ROOT:-$PWD}"
 
 green() { printf '\033[32m✓\033[0m %s\n' "$1"; }
 
-# The template repository's own CI ships with every project. template_tests/ exists only there.
-if [ ! -d template_tests ] && [ -f .github/workflows/template.yml ]; then
-    rm .github/workflows/template.yml
-    green "Removed the template repository's CI workflow."
+# Template-only files ship with every project. template_tests/ exists only in the template repository.
+# Each listed *.project.* file replaces the file of the same name without ".project". A list, not a
+# search: bootstrap may run again, and a project's own *.project.* files must survive it.
+if [ ! -d template_tests ]; then
+    rm -f .github/workflows/template.yml
+    for file in .github/dependabot.project.yml; do
+        if [ -f "$file" ]; then
+            mv "$file" "${file/.project./.}"
+            green "Installed the project's ${file/.project./.}."
+        fi
+    done
 fi
 
 # -f, not -e: the justfile this replaced appended its block unconditionally, so a second run

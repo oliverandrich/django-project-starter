@@ -1,6 +1,7 @@
 """What `django-admin startproject` must produce from this template."""
 
 import ast
+import functools
 import json
 import os
 import re
@@ -17,7 +18,9 @@ MISE_FILES = ("mise.toml", ".mise/tasks/dev", ".mise/tasks/bootstrap")
 
 # The generated project's GitHub setup. .github is a dot-directory, so it needs --exclude too.
 CI_WORKFLOW = ".github/workflows/ci.yml"
-GITHUB_FILES = (CI_WORKFLOW, ".github/dependabot.yml")
+PROJECT_DEPENDABOT = ".github/dependabot.project.yml"
+GITHUB_FILES = (CI_WORKFLOW, PROJECT_DEPENDABOT)
+UV_UPDATES = "package-ecosystem: uv"
 
 # The template repository's own CI. It ships with every project, and bootstrap removes it.
 TEMPLATE_WORKFLOW = ".github/workflows/template.yml"
@@ -42,13 +45,14 @@ def _mise_tasks(project: Path) -> list[dict]:
     return [task for task in json.loads(listing.stdout) if not task["global"]]
 
 
-def _task_names(root: Path) -> set[str]:
+@functools.cache
+def _task_names(root: Path) -> frozenset[str]:
     """Task names and their aliases — the docs use `mise run runserver`, an alias of debugserver."""
     names = set()
     for task in _mise_tasks(root):
         names.add(task["name"])
         names.update(task["aliases"])
-    return names
+    return frozenset(names)
 
 
 def _text_files(root: Path):
@@ -72,7 +76,8 @@ def test_documented_command_passes_exclude(documented_argv):
 
 def test_tooling_lands_in_the_generated_project(generate):
     project = generate()
-    missing = [name for name in MISE_FILES + GITHUB_FILES if not (project / name).is_file()]
+    expected = MISE_FILES + GITHUB_FILES
+    missing = [name for name in expected if not (project / name).is_file()]
     assert missing == []
 
 
@@ -224,14 +229,22 @@ def test_every_documented_command_is_a_real_task(generate):
     assert missing == []
 
 
-def test_bootstrap_removes_the_template_workflow(generate, tmp_path_factory):
-    """The template's own CI ships with every project, so bootstrap deletes it before committing.
+def test_template_dependabot_skips_uv():
+    """uv cannot read the placeholder pyproject.toml, so its updates would fail every week here."""
+    assert UV_UPDATES not in (REPO_ROOT / ".github/dependabot.yml").read_text()
+
+
+def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_factory):
+    """Template-only files ship with every project; bootstrap swaps in the *.project.* versions.
 
     mise, uv and uvx are stubbed: this checks the script's logic, not the toolchain. The template
     workflow's end-to-end job runs the real bootstrap.
     """
     project = generate()
     assert (project / TEMPLATE_WORKFLOW).is_file()
+    # A project file that merely looks like a template one. Bootstrap may run again later.
+    (project / "fixtures").mkdir()
+    (project / "fixtures/initial.project.json").write_text("[]")
 
     stubs = tmp_path_factory.mktemp("stubs")
     for name, body in (
@@ -259,3 +272,10 @@ def test_bootstrap_removes_the_template_workflow(generate, tmp_path_factory):
     assert not (project / TEMPLATE_WORKFLOW).exists()
     assert TEMPLATE_WORKFLOW not in committed
     assert CI_WORKFLOW in committed
+    # Every *.project.* file of the template, so a new one cannot slip past bootstrap's list.
+    for source in template_dir.rglob("*.project.*"):
+        swapped = str(source.relative_to(template_dir))
+        assert swapped not in committed
+        assert swapped.replace(".project.", ".") in committed
+    assert (project / "fixtures/initial.project.json").is_file()
+    assert UV_UPDATES in (project / ".github/dependabot.yml").read_text()

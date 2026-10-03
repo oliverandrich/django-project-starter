@@ -1,9 +1,7 @@
+# The template repository's own updates. Bootstrap replaces this file with dependabot.project.yml.
+# No uv entry: uv cannot read the placeholder project name in pyproject.toml.
 version: 2
 updates:
-  - package-ecosystem: uv
-    directory: /
-    schedule:
-      interval: weekly
   - package-ecosystem: pre-commit
     directory: /
     schedule:

@@ -68,6 +68,7 @@ jobs:
           git config --global init.defaultBranch main
           mise run bootstrap
           test ! -e .github/workflows/template.yml
+          test -z "$(git ls-files '*.project.*')"
           rm .env
       - name: Lint
         run: mise run lint

@@ -134,6 +134,11 @@ Two workflows live in `.github/workflows/`:
 - `template.yml` tests this repository. It ships with every project, and `mise run bootstrap`
   deletes it there.
 
+Files named `*.project.*` belong to the generated project. `mise run bootstrap` renames each
+listed one to the name without `.project`, replacing this repository's version:
+
+- `.github/dependabot.project.yml` becomes `.github/dependabot.yml`.
+
 Anything added to the repository is copied into every generated project unless its directory is
 named in the `--exclude` flags of the documented command. That includes dot-directories, and it
 is the reason `--exclude` is mandatory rather than optional.
