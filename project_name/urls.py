@@ -1,5 +1,5 @@
 # URL Configuration
-# https://docs.djangoproject.com/en/5.1/topics/http/urls/
+# https://docs.djangoproject.com/en/6.1/topics/http/urls/
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -8,7 +8,7 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    # Out urls
+    # Our urls
     path("", TemplateView.as_view(template_name="base.html")),
     # Admin area
     path("admin/", admin.site.urls),

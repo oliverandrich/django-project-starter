@@ -22,7 +22,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
-- A local install of alpine.js and htmx.
+- htmx served locally through django-htmx.
 - BaseCommand class for writing management commands that log to a rotating logfile and the console if run in an interactive shell.
 
 ### Development tools
@@ -96,26 +96,25 @@ mise run test
 dev stop` shuts it down again. It runs on its own tmux server, named after the project
 directory, so it is reachable from a plain shell with `tmux -L <project> attach`.
 
-## Environemt Variables for Docker and your .env file
+## Environment Variables for Docker and your .env file
 
 Or when run as a [12-Factor application](https://12factor.net).
 
-| Environment Variable | Default                                           | Location      |
-| -------------------- | ------------------------------------------------- | ------------- |
-| ALLOWED_HOSTS        | []                                                | settings.py   |
-| CACHE_URL            | "locmem://"                                       | settings.py   |
-| CSRF_TRUSTED_ORIGINS | []                                                | settings.py   |
-| DATABASE_URL         | SQLite via dj-lite                                | settings.py   |
-| DEBUG                | False                                             | settings.py   |
-| EMAIL_URL            | "console:"                                        | settings.py   |
-| INTERNAL_IPS         | []                                                | settings.py   |
-| LANGUAGE_CODE        | "EN"                                              | settings.py   |
-| SECRET_KEY           |                                                   | settings.py   |
-| TAILWIND_CLI_PATH    | "~/.local/bin"                                    | settings.py   |
-| TIME_ZONE            | "UTC"                                             | settings.py   |
-| GRANIAN_WORKERS      | 1                                                 | entrypoint.sh |
-| GRANIAN_THREADS      | 1                                                 | entrypoint.sh |
-| GRANIAN_*            | see <https://github.com/emmett-framework/granian> | entrypoint.sh |
+| Environment Variable    | Default                                           | Location      |
+| ----------------------- | ------------------------------------------------- | ------------- |
+| ALLOWED_HOSTS           | []                                                | settings.py   |
+| CACHE_URL               | "locmem://"                                       | settings.py   |
+| CSRF_TRUSTED_ORIGINS    | []                                                | settings.py   |
+| DATABASE_URL            | SQLite via dj-lite                                | settings.py   |
+| DEBUG                   | False                                             | settings.py   |
+| EMAIL_URL               | "console:"                                        | settings.py   |
+| INTERNAL_IPS            | []                                                | settings.py   |
+| LANGUAGE_CODE           | "en"                                              | settings.py   |
+| SECRET_KEY              |                                                   | settings.py   |
+| TIME_ZONE               | "UTC"                                             | settings.py   |
+| GRANIAN_WORKERS         | 1                                                 | entrypoint.sh |
+| GRANIAN_RUNTIME_THREADS | 1                                                 | entrypoint.sh |
+| GRANIAN_*               | see <https://github.com/emmett-framework/granian> | entrypoint.sh |
 
 ## Docker and docker-compose
 
