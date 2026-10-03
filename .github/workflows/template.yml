@@ -1,0 +1,75 @@
+name: Template
+
+# Tests this template repository. It ships with every generated project, where
+# `mise run bootstrap` deletes it; the repository guard covers projects never bootstrapped.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  generation:
+    if: github.repository == 'oliverandrich/django-project-starter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: python uv
+      - name: Test generation
+        run: mise run test-template
+
+  generated-project:
+    if: github.repository == 'oliverandrich/django-project-starter'
+    runs-on: ubuntu-latest
+    # Mirrors ci.yml, which runs without the .env that bootstrap writes.
+    env:
+      SECRET_KEY: ci-only-not-secret
+    defaults:
+      run:
+        working-directory: acme_shop
+    steps:
+      # Template and project side by side, so the trust mise-action grants covers both.
+      - uses: actions/checkout@v7
+        with:
+          path: template
+      - uses: jdx/mise-action@v5
+        with:
+          working_directory: template
+          install_args: python uv
+          env: false
+      # Bootstrap writes uv.lock, so the keys hash the template's inputs instead.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.cache/pre-commit
+          key: generated-${{ hashFiles('template/pyproject.toml', 'template/.pre-commit-config.yaml') }}
+      # Run inside the template, whose mise.toml resolves the python shim.
+      - name: Generate a project from this checkout
+        working-directory: template
+        run: >-
+          mkdir ../acme_shop &&
+          uv run --no-project --with=django django-admin startproject
+          --extension=ini,py,toml,sh --exclude=template_tests
+          --template=. acme_shop ../acme_shop
+      - name: Bootstrap
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+          mise run bootstrap
+          test ! -e .github/workflows/template.yml
+          rm .env
+      - name: Lint
+        run: mise run lint
+      - name: Test
+        run: mise run test

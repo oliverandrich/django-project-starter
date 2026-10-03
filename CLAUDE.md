@@ -126,6 +126,12 @@ This repository is a template, not a runnable project, and two things follow fro
   exists here and is simply absent from a generated project. `mise run test` is the *generated*
   project's Django suite and needs a project.
 
+Two workflows live in `.github/workflows/`:
+
+- `ci.yml` belongs to the generated project. It is disabled in this repository, where it cannot pass.
+- `template.yml` tests this repository. It ships with every project, and `mise run bootstrap`
+  deletes it there.
+
 Anything added to the repository is copied into every generated project unless its directory is
 named in the `--exclude` flags of the documented command. That includes dot-directories, and it
 is the reason `--exclude` is mandatory rather than optional.

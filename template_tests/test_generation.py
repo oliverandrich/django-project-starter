@@ -19,6 +19,9 @@ MISE_FILES = ("mise.toml", ".mise/tasks/dev", ".mise/tasks/bootstrap")
 CI_WORKFLOW = ".github/workflows/ci.yml"
 GITHUB_FILES = (CI_WORKFLOW, ".github/dependabot.yml")
 
+# The template repository's own CI. It ships with every project, and bootstrap removes it.
+TEMPLATE_WORKFLOW = ".github/workflows/template.yml"
+
 # README.md and CLAUDE.md keep the placeholder on purpose — they document it.
 PLACEHOLDER_IS_DOCUMENTED = {"README.md", "CLAUDE.md"}
 
@@ -219,3 +222,40 @@ def test_every_documented_command_is_a_real_task(generate):
 
     assert documented, "the docs name no mise commands — the test is not looking anywhere"
     assert missing == []
+
+
+def test_bootstrap_removes_the_template_workflow(generate, tmp_path_factory):
+    """The template's own CI ships with every project, so bootstrap deletes it before committing.
+
+    mise, uv and uvx are stubbed: this checks the script's logic, not the toolchain. The template
+    workflow's end-to-end job runs the real bootstrap.
+    """
+    project = generate()
+    assert (project / TEMPLATE_WORKFLOW).is_file()
+
+    stubs = tmp_path_factory.mktemp("stubs")
+    for name, body in (
+        ("mise", f'echo "{stubs}/python"'),
+        ("python", 'echo "Python 3.14.0"'),
+        ("uv", ":"),
+        ("uvx", ":"),
+    ):
+        (stubs / name).write_text(f"#!/bin/sh\n{body}\n")
+        (stubs / name).chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}",
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }
+    env.pop("MISE_PROJECT_ROOT", None)
+    subprocess.run([".mise/tasks/bootstrap"], cwd=project, env=env, check=True, capture_output=True)
+
+    committed = subprocess.run(
+        ["git", "ls-files"], cwd=project, capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    assert not (project / TEMPLATE_WORKFLOW).exists()
+    assert TEMPLATE_WORKFLOW not in committed
+    assert CI_WORKFLOW in committed

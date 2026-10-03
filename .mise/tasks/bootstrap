@@ -6,6 +6,12 @@ cd "${MISE_PROJECT_ROOT:-$PWD}"
 
 green() { printf '\033[32m✓\033[0m %s\n' "$1"; }
 
+# The template repository's own CI ships with every project. template_tests/ exists only there.
+if [ ! -d template_tests ] && [ -f .github/workflows/template.yml ]; then
+    rm .github/workflows/template.yml
+    green "Removed the template repository's CI workflow."
+fi
+
 # -f, not -e: the justfile this replaced appended its block unconditionally, so a second run
 # left DEBUG in .env twice.
 if [ ! -f .env ]; then
