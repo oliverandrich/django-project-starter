@@ -209,6 +209,6 @@ CACHES = {"default": env.dj_cache_url("CACHE_URL", default="locmem://")}
 # https://django-tailwind-cli.andrich.me/settings/
 TAILWIND_CLI_USE_DAISY_UI = True
 
-# django-rich
+# django-rich output, with a staticfiles storage that needs no collectstatic run
 # https://pypi.org/project/django-rich/
-TEST_RUNNER = "django_rich.test.RichRunner"
+TEST_RUNNER = "{{ project_name }}.test_runner.TestRunner"

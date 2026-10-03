@@ -76,7 +76,8 @@ This Django project uses a **single folder layout** where the main application l
   - `management/`: Custom management commands with BaseCommand for consistent logging
   - `locale/`: Translation files for i18n (English and German)
 
-- **`tests/`**: Test suite using Django's test framework with django-test-plus and django-rich test runner
+- **`tests/`**: Test suite using Django's test framework, run by `project_name/test_runner.py`
+  (django-rich output, staticfiles without a manifest)
 - **`template_tests/`**: Tests for the template itself (`mise run test-template`). Excluded from generation — never ships into a project
 - **`assets/`**: Static assets (CSS, JS) served by WhiteNoise
 - **`logs/`**: Log files from management commands (gitignored)
