@@ -66,10 +66,6 @@ venv.bak/
 # mkdocs documentation
 /site
 
-# pyright
-.pyright/
-pyrightconfig.json.bak
-
 # PyCharm
 .idea/
 

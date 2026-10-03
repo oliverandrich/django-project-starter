@@ -45,7 +45,7 @@ mise run lint
 # Run specific linters if needed
 uv run ruff check .
 uv run ruff format .
-uv run pyright .
+uv run ty check
 ```
 
 ### Interactive Shell
@@ -91,8 +91,8 @@ This Django project uses a **single folder layout** where the main application l
 - **Development Tools**:
   - `uv` for dependency management
   - `mise` for the toolchain and task automation
-  - Pre-commit hooks with ruff, pyright, django-upgrade
-  - Type checking with pyright and django-types
+  - Pre-commit hooks with ruff, ty, django-upgrade, djade
+  - Type checking with ty and django-types
 
 ### Configuration
 
@@ -115,9 +115,9 @@ This repository is a template, not a runnable project, and two things follow fro
 
 - **`uv sync` does not work here.** `pyproject.toml` says `name = "{{ project_name }}"`, which uv
   rejects as a package name, so the repository has no `.venv` and never will. `mise run lint`
-  therefore stops at pyright with `reportMissingImports` for every third-party import — pyright
-  has nothing to resolve against. Run `SKIP=pyright mise run lint` here; pyright belongs to the
-  generated project, where `mise run lint` passes in full.
+  therefore fails at the ty hook, which runs through `uv run`. Run
+  `SKIP=ty mise run lint` here; ty belongs to the generated project, where
+  `mise run lint` passes in full.
 - **`mise run test-template` is the suite that applies here**, and it runs on `uvx pytest` for
   exactly the reason above — `uv run` would parse `pyproject.toml` and fail. Its task file lives
   in `template_tests/tasks/`, wired in through `[task_config] includes` in `mise.toml`, so it

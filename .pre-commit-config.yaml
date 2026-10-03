@@ -17,33 +17,32 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # v0.12.0 or newer: the `ruff-check` hook id below does not exist in v0.9.x, where it was
     # still called `ruff`, so the pinned pair here never ran.
-    rev: v0.16.5
+    rev: v0.16.10
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.1
-    hooks:
-      - id: pyupgrade
-        args: [--py314-plus]
-
   - repo: https://github.com/adamchainz/django-upgrade
     # 1.31.0 or newer: earlier releases do not know --target-version 6.1. The pinned revision is
     # what pre-commit runs, so checking `uvx django-upgrade --help` says nothing about this.
-    rev: 1.32.0
+    rev: 1.33.0
     hooks:
       - id: django-upgrade
         args: [--target-version, "6.1"]
 
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.395
+  - repo: local
     hooks:
-      - id: pyright
+      # Runs from the project venv, so it sees the installed packages and the version uv.lock pins.
+      - id: ty
+        name: ty
+        entry: uv run ty check
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
 
   - repo: https://github.com/adamchainz/djade-pre-commit
-    rev: "1.7.0"
+    rev: "1.9.0"
     hooks:
       - id: djade
         # 6.0, not 6.1: djade's newest known target is 6.0. Not a forgotten pin -- raise it when

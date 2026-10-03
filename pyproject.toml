@@ -29,22 +29,12 @@ dev = [
   "coverage[toml]>=7.16.2",
   "django-test-plus>=2.6.2",
   "django-rich>=2.2.0",
+  "ty>=0.0.84",
 ]
 
-[tool.pyright]
-typeCheckingMode = "basic"
-pythonVersion = "3.14"
-venvPath = "."
-venv = ".venv"
+[tool.ty.src]
 include = ["{{ project_name }}", "tests"]
-exclude = [
-  "**/migrations",
-  "**/node_modules",
-  "**/__pycache__",
-  ".venv"
-]
-reportMissingImports = true
-reportMissingTypeStubs = false
+exclude = ["**/migrations"]
 
 [tool.coverage.run]
 source = ["{{ project_name }}"]
@@ -82,6 +72,7 @@ select = [
   "N",   # pep8-naming
   "Q",   # flake8-quotes
   "TID", # flake8-tidy-imports
+  "UP",  # pyupgrade
   "W",   # pycodestyle
   "YTT", # flake8-2020
 ]

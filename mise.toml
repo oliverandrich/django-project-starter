@@ -15,7 +15,7 @@ uv = "latest"
 # directory. Every client of that socket needs this version — a hand-run `tmux -L <project>
 # attach`, and the dev script itself: its `has-session` check discards stderr, so a "protocol
 # version mismatch" would surface as the far more confusing "Session is not running".
-tmux = "3.7b"
+tmux = "3.7c"
 
 # Task files live in two places. `.mise/tasks` is the default and ships with every generated
 # project; `template_tests/tasks` holds the tasks that only make sense in this repository and is

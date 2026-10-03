@@ -27,7 +27,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 
 ### Development tools
 
-- django-types + pyright
+- django-types + ty
 - django-browser-reload
 - model-bakery & faker for smarter testing fixtures
 - pre-commit setup inspired by [Boost your Django DX](https://adamchainz.gumroad.com/l/byddx)
