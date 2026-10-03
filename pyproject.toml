@@ -1,7 +1,7 @@
 [project]
 name = "{{ project_name }}"
 version = "0.1.0"
-requires-python = ">=3.13,<4.0"
+requires-python = ">=3.14,<4.0"
 dependencies = [
   "django-browser-reload>=1.17.0",
   "django-htmx>=1.23.0",
@@ -33,7 +33,7 @@ dev = [
 
 [tool.pyright]
 typeCheckingMode = "basic"
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
 include = ["{{ project_name }}", "tests"]
@@ -63,7 +63,6 @@ exclude_lines = [
 omit = ["*/migrations/*", "*/tests/*", "*/conftest.py"]
 
 [tool.ruff]
-target-version = "py313"
 line-length = 100
 
 [tool.ruff.format]

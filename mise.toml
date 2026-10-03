@@ -8,7 +8,7 @@
 # The range pyproject asks for, not a patch pin: a template goes stale otherwise. Pinned at all
 # because a global mise config may name a newer Python, and `mise which python` would then hand
 # uv an interpreter this project does not support.
-python = "3.13"
+python = "3.14"
 uv = "latest"
 # Only needed for `mise run dev`; nothing else in the toolchain uses it.
 # It runs its own tmux server on a socket named after the project

@@ -1,5 +1,5 @@
 default_language_version:
-  python: python3.13
+  python: python3.14
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -27,7 +27,7 @@ repos:
     rev: v3.19.1
     hooks:
       - id: pyupgrade
-        args: [--py313-plus]
+        args: [--py314-plus]
 
   - repo: https://github.com/adamchainz/django-upgrade
     # 1.31.0 or newer: earlier releases do not know --target-version 6.1. The pinned revision is
