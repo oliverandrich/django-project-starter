@@ -156,7 +156,7 @@ class _Prepared(click.Command):
         # whatever the test runner was invoked with.
         self.logger = _build_logger(self.name or "command")
         self.logger.setLevel(logging.DEBUG if getattr(ctx, "verbosity", 1) > 1 else logging.INFO)
-        ctx.logger = self.logger  # ty: ignore[unresolved-attribute]
+        ctx.logger = self.logger  # pyright: ignore[reportAttributeAccessIssue]
 
         return super().invoke(ctx)
 
@@ -234,13 +234,13 @@ def pass_logger(f: Callable[..., Any]) -> Callable[..., Any]:
     """Pass the command's logger in as a keyword argument, like django-click's `pass_verbosity`."""
 
     def new_func(*args: Any, **kwargs: Any) -> Any:
-        ctx = click.get_current_context()
-        if not hasattr(ctx, "logger"):
+        logger = getattr(click.get_current_context(), "logger", None)
+        if logger is None:
             raise RuntimeError(
                 "@pass_logger needs the @command() from this module; a plain djclick.command "
                 "never sets up a logger."
             )
-        kwargs["logger"] = ctx.logger
+        kwargs["logger"] = logger
         return f(*args, **kwargs)
 
     return functools.update_wrapper(new_func, f)

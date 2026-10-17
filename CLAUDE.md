@@ -12,8 +12,8 @@ This repository is a template for `django-admin startproject`. Generation replac
 
 - **`uv sync` does not work here.** `pyproject.toml` says `name = "{{ project_name }}"`, which uv
   rejects as a package name, so the repository has no `.venv` and never will. `mise run lint`
-  therefore fails at the ty hook, which runs through `uv run`. Run
-  `SKIP=ty mise run lint` here; ty belongs to the generated project, where
+  therefore fails at the basedpyright hook, which runs through `uv run`. Run
+  `SKIP=basedpyright mise run lint` here; basedpyright belongs to the generated project, where
   `mise run lint` passes in full.
 - **`mise run test-template` is the suite that applies here**, and it runs on `uvx pytest` for
   exactly the reason above — `uv run` would parse `pyproject.toml` and fail. Its task file lives

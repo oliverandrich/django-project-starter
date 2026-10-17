@@ -34,9 +34,9 @@ repos:
   - repo: local
     hooks:
       # Runs from the project venv, so it sees the installed packages and the version uv.lock pins.
-      - id: ty
-        name: ty
-        entry: uv run ty check
+      - id: basedpyright
+        name: basedpyright
+        entry: uv run basedpyright
         language: system
         types_or: [python, pyi]
         pass_filenames: false

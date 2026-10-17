@@ -31,7 +31,7 @@ mise run migrate
 mise run makemigrations
 mise run shell           # shell_plus
 mise run manage <args>   # any other manage.py command
-mise run lint            # pre-commit: ruff, ty, django-upgrade, djade
+mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade
 mise run test            # test suite with coverage
 ```
 

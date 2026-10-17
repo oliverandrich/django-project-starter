@@ -29,12 +29,13 @@ dev = [
   "coverage[toml]>=7.16.2",
   "django-test-plus>=2.6.2",
   "django-rich>=2.2.0",
-  "ty>=0.0.84",
+  "basedpyright>=1.40.2",
 ]
 
-[tool.ty.src]
+[tool.basedpyright]
 include = ["{{ project_name }}", "tests"]
 exclude = ["**/migrations"]
+typeCheckingMode = "standard"
 
 [tool.coverage.run]
 source = ["{{ project_name }}"]
