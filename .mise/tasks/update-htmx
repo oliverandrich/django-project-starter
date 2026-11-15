@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#MISE description="Vendor an htmx release and its hx-sse extension from npm: mise run update-htmx 4.0.1"
+set -euo pipefail
+
+cd "${MISE_PROJECT_ROOT:-$PWD}"
+
+version="${1:-}"
+# A concrete 4.x release: a dist-tag such as "latest" is unknown in VERSION, and htmx 2 lacks hx-sse.
+if ! [[ "$version" =~ ^4\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Usage: mise run update-htmx <version>, with a 4.x release such as 4.0.1." >&2
+    exit 64
+fi
+target=assets/vendor/htmx
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+# The registry metadata names the tarball and the sha512 the download must match.
+curl -fsSL "https://registry.npmjs.org/htmx.org/$version" -o "$tmp/meta.json"
+# A command substitution, not a process substitution, so set -e stops on a parse failure.
+dist="$(python3 -I -c 'import json, sys; d = json.load(open(sys.argv[1]))["dist"]; print(d["tarball"], d["integrity"])' "$tmp/meta.json")"
+read -r tarball integrity <<<"$dist"
+curl -fsSL "$tarball" -o "$tmp/htmx.tgz"
+actual="sha512-$(openssl dgst -sha512 -binary "$tmp/htmx.tgz" | base64 | tr -d '\n')"
+if [ "$actual" != "$integrity" ]; then
+    echo "Checksum mismatch for htmx.org@$version: expected $integrity, got $actual" >&2
+    exit 1
+fi
+
+tar -xzf "$tmp/htmx.tgz" -C "$tmp" package/dist/htmx.min.js package/dist/ext/hx-sse.min.js
+mkdir -p "$target/ext"
+cp "$tmp/package/dist/htmx.min.js" "$target/htmx.min.js"
+cp "$tmp/package/dist/ext/hx-sse.min.js" "$target/ext/hx-sse.min.js"
+printf '%s\n' "$version" >"$target/VERSION"
+
+echo "Vendored htmx $version into $target."

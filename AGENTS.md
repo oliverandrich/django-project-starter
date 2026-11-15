@@ -69,7 +69,16 @@ It holds up to 10000 entries; `CACHE_URL=db://django_cache?max_entries=N` change
 
 Pages are rendered on the server.
 htmx adds interactivity; there is no JavaScript build step and no SPA framework.
-django-htmx serves htmx and provides `request.htmx`.
+htmx 4 and its hx-sse extension are vendored in `assets/vendor/htmx`.
+`mise run update-htmx <version>` replaces them after checking the npm checksum.
+django-htmx provides `request.htmx` and, in `DEBUG`, shows error pages for failed htmx requests.
+Do not use its `{% htmx_script %}` tag: it loads the htmx bundled with django-htmx.
+htmx 4 passes attributes to descendants only with the `:inherited` suffix, as in `hx-boost:inherited`.
+`base.html` sets the `X-CSRFToken` header on every htmx request from the `csrftoken` cookie.
+The cookie follows the token rotation in `login()`, which a token fixed in the page does not.
+Keep `CSRF_COOKIE_HTTPONLY` off, so the script can read the cookie.
+Every page sets that cookie, which makes responses vary on `Cookie`.
+htmx 4 swaps 4xx and 5xx responses, and requests time out after 60 seconds.
 Tailwind CSS with daisyUI comes from django-tailwind-cli, which needs no Node.js.
 `base.html` enables `hx-boost` for the whole page.
 

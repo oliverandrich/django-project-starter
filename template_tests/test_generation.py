@@ -372,3 +372,15 @@ def test_project_ci_skips_the_template_repository():
     assert jobs, "ci.yml defines no jobs"
     unguarded = [job.split(":", 1)[0] for job in jobs if guard not in job]
     assert unguarded == []
+
+
+def test_update_htmx_rejects_anything_but_a_4x_release(generate):
+    """A dist-tag such as "latest" would vendor an unknown release; htmx 2 lacks hx-sse."""
+    project = generate()
+    for version in ("latest", "2.0.4", ""):
+        result = subprocess.run(
+            [".mise/tasks/update-htmx", version], cwd=project, capture_output=True, text=True
+        )
+        assert result.returncode != 0
+        assert "4.x" in result.stderr
+    assert (project / "assets/vendor/htmx/VERSION").read_text().strip().startswith("4.")

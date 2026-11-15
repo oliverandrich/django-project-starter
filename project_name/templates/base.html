@@ -6,11 +6,22 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{% block title %}Home{% endblock %}</title>
         {% tailwind_css %}
-        {% htmx_script %}
+        {# htmx 4, vendored by `mise run update-htmx`. #}
+        <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
+        <script src="{% static 'vendor/htmx/ext/hx-sse.min.js' %}" defer></script>
+        {% django_htmx_script %}
+        <script>
+            // Read per request, so the header follows login(), which rotates the token in the cookie.
+            // The rendered token covers pages before Django has set the cookie.
+            document.addEventListener("htmx:config:request", (event) => {
+                const cookie = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+                event.detail.ctx.request.headers["X-CSRFToken"] = cookie ? cookie[1] : "{{ csrf_token }}";
+            });
+        </script>
         {% django_browser_reload_script %}
         {% block extra_head %}{% endblock %}
     </head>
-    <body hx-boost="true">
+    <body hx-boost:inherited="true">
         {% block content %}
             <div class="min-h-screen flex justify-center items-center">
                 <div class="text-5xl">
