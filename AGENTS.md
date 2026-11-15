@@ -173,8 +173,13 @@ Write a failing test before a fix or a feature.
 
 ## Production
 
-WhiteNoise serves static files with hashed names from the manifest.
 The Docker image runs `manage.py serve`, granian over ASGI on port 8000, and migrates on start.
+Deployments run behind Caddy, which terminates TLS and compresses responses.
+Outside `DEBUG`, granian serves `STATIC_ROOT` itself with a one-year cache.
+`collectstatic` keeps only files with a content hash in their name, plus the manifest.
+The storage is `<package>/storage.py`.
+Reference static files only through `{% static %}`; a hard-coded `/static/...` path gets a 404.
+In `DEBUG`, Django serves static files from the app directories without `collectstatic`.
 `GRANIAN_*` environment variables configure granian, such as `GRANIAN_WORKERS`.
 The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
 Only the web process migrates, so start the others after it.

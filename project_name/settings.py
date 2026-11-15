@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.messages",
     "django.contrib.sessions",
-    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
 ]
 
@@ -71,7 +70,6 @@ INSTALLED_APPS += ["{{ project_name }}"]
 # https://docs.djangoproject.com/en/6.1/topics/http/middleware/
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -190,8 +188,9 @@ STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
+    # Hashed copies only: granian serves them with a one-year expiry, and Caddy compresses.
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "{{ project_name }}.storage.HashedStaticFilesStorage",
     },
 }
 

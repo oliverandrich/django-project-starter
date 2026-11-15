@@ -17,7 +17,6 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - django-click
 - environs\[django\]
 - heroicons
-- whitenoise
 - [granian](https://github.com/emmett-framework/granian) serving ASGI, in development and in the Docker image
 - PostgreSQL through psycopg 3; `mise run bootstrap` creates the database
 - Django's database cache in an UNLOGGED PostgreSQL table, created by `migrate`
@@ -143,6 +142,21 @@ The `docker/Dockerfile` uses a multi stage process to embrace caching for buildi
 The image starts the web server by default. Pass `worker` or `scheduler` as the command to start
 the task worker or the cron scheduler from the same image. Only the web server runs migrations.
 Every process needs `DATABASE_URL` pointing at the PostgreSQL server.
+
+### Behind Caddy
+
+The image expects a reverse proxy in front. granian serves static files from `STATIC_ROOT` with
+a one-year cache and no compression; Caddy compresses them and the pages.
+
+```caddyfile
+example.com {
+    encode zstd gzip
+    reverse_proxy web:8000
+}
+```
+
+`collectstatic` keeps only hashed file names, so the long cache never serves a stale file.
+Caddy 2 passes server-sent events through without buffering, also with `encode` enabled.
 
 ## License
 
