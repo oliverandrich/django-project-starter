@@ -125,6 +125,35 @@ The day-of-week field takes names such as `Mon`, not numbers.
 A second scheduler exits after 15 seconds.
 A transaction-pooling PgBouncer breaks the lock.
 
+## Live updates
+
+`<package>/events.py` pushes HTML to browsers as server-sent events over PostgreSQL LISTEN/NOTIFY.
+`broadcast(topic, html)` sends after the current transaction commits; a rollback sends nothing.
+Render the html from a template partial, such as `render_to_string("chat.html#message", context)`.
+A page opens one stream for all its topics: `hx-sse:connect="{% url 'events' %}?topic=a&topic=b"`.
+htmx swaps each message; elements with `hx-swap-oob` or `<hx-partial>` update the page anywhere.
+
+```html
+<ul id="messages"></ul>
+<div hx-sse:connect="{% url 'events' %}?topic=room:{{ room.pk }}"></div>
+```
+
+```python
+html = '<ul id="messages" hx-swap-oob="beforeend"><li id="message-7">Hi</li></ul>'
+broadcast(f"room:{room.pk}", html)
+```
+
+`can_subscribe()` in `events.py` decides who may read a topic.
+`public:…` is open to everyone, `user:<id>` to that user; every other kind stays closed.
+Add a case for each new kind of topic, such as chat rooms with a membership check.
+It runs once, when the stream opens; a user who loses access keeps the stream until it reconnects.
+
+Every event is stored in `StreamEvent`. A reconnecting browser sends `Last-Event-ID` and gets the events it missed.
+`EVENTS_RETENTION_HOURS` (default 24) sets how far back that reaches; `prune_stream_events` deletes older events hourly.
+Give list items stable ids, so an event delivered twice replaces its element instead of adding one.
+Each granian worker holds two connections for the streams, outside the pool, however many streams are open.
+`broadcast()` serialises its writes through an advisory lock, so event ids become visible in order.
+
 ## Tests
 
 Tests use Django's test framework with django-test-plus and model-bakery.

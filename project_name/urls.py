@@ -1,17 +1,23 @@
 # URL Configuration
 # https://docs.djangoproject.com/en/6.1/topics/http/urls/
 
+from importlib import import_module
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
 
+# A string, so the template repository stays valid Python before startproject renders it.
+events = import_module("{{ project_name }}.events")
+
 urlpatterns = [
     # Our urls
     path("", TemplateView.as_view(template_name="base.html")),
     # Admin area
     path("admin/", admin.site.urls),
+    path("events/", events.stream, name="events"),
     # Django browser reload
     path("__reload__/", include("django_browser_reload.urls")),
 ]

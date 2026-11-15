@@ -61,3 +61,26 @@ class PruneTaskResultsTest(TestCase):
     def test_runs_daily(self):
         names = [job.name for job in scheduler.get_jobs()]
         self.assertIn(prune_task_results.name, names)
+
+
+StreamEvent = import_module("{{ project_name }}.models").StreamEvent
+prune_stream_events = import_module("{{ project_name }}.tasks").prune_stream_events
+
+
+@override_settings(EVENTS_RETENTION_HOURS=24)
+class PruneStreamEventsTest(TestCase):
+    def make_event(self, *, age: timedelta):
+        event = baker.make(StreamEvent, topic="public:news")
+        StreamEvent.objects.filter(pk=event.pk).update(created=timezone.now() - age)
+        return event
+
+    def test_deletes_events_older_than_the_retention(self):
+        old = self.make_event(age=timedelta(hours=25))
+        recent = self.make_event(age=timedelta(hours=1))
+        prune_stream_events.call()
+        remaining = StreamEvent.objects.values_list("id", flat=True)
+        self.assertNotIn(old.id, remaining)
+        self.assertIn(recent.id, remaining)
+
+    def test_runs_hourly(self):
+        self.assertIn(prune_stream_events.name, [job.name for job in scheduler.get_jobs()])

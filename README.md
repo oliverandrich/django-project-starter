@@ -25,6 +25,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
 - htmx 4 with its hx-sse extension, vendored in `assets/vendor/htmx` and updated with `mise run update-htmx <version>`.
+- Live updates: `broadcast()` pushes HTML to an SSE endpoint over PostgreSQL LISTEN/NOTIFY, with replay after a reconnect.
 - Background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them in PostgreSQL, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. An advisory lock keeps a second scheduler from running.
 - A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
 
@@ -124,6 +125,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | DATABASE_URL            | "postgres:///<project>" (local socket)             | settings.py   |
 | DEBUG                   | False                                              | settings.py   |
 | EMAIL_URL               | "console:"                                         | settings.py   |
+| EVENTS_RETENTION_HOURS  | 24                                                 | settings.py   |
 | INTERNAL_IPS            | []                                                 | settings.py   |
 | LANGUAGE_CODE           | "en"                                               | settings.py   |
 | SECRET_KEY              |                                                    | settings.py   |

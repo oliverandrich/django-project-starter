@@ -224,6 +224,10 @@ TASKS = {
     },
 }
 
+# Server-sent events, see events.py
+# A reconnecting stream replays missed events from this window, after which they are pruned.
+EVENTS_RETENTION_HOURS = env.int("EVENTS_RETENTION_HOURS", default=24)
+
 # django-tailwind-cli settings
 # https://django-tailwind-cli.andrich.me/settings/
 TAILWIND_CLI_USE_DAISY_UI = True
