@@ -20,10 +20,7 @@ jobs:
       SECRET_KEY: ci-only-not-secret
     steps:
       - uses: actions/checkout@v7
-      # Python and uv only: tmux serves `mise run dev` and is not needed here.
       - uses: jdx/mise-action@v5
-        with:
-          install_args: python uv
       - uses: actions/cache@v6
         with:
           path: ~/.cache/uv

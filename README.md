@@ -52,7 +52,7 @@ $ uv run --with=django django-admin startproject \
 $ cd example_project
 $ mise trust          # once, so mise reads mise.toml
 $ mise run bootstrap  # .env, dependencies, first CSS build, git, pre-commit hook
-$ mise run runserver
+$ mise run debugserver
 ```
 
 `--exclude` is not optional, and its effect is indirect. Django drops **every** directory whose
@@ -78,10 +78,11 @@ mise run migrate
 # Create database migrations
 mise run makemigrations
 
-# Start debugserver
-mise run runserver
-# or
+# Start runserver, the task worker and the scheduler together; Ctrl-C stops all
 mise run debugserver
+
+# Start the development server alone
+mise run runserver
 
 # Start the interactive django shell
 mise run shell
@@ -102,9 +103,9 @@ mise run lint
 mise run test
 ```
 
-`mise run dev` opens a three-pane tmux session (agent, `debugserver`, a free shell); `mise run
-dev stop` shuts it down again. It runs on its own tmux server, named after the project
-directory, so it is reachable from a plain shell with `tmux -L <project> attach`.
+`mise run worker` exits at once unless `TASKS_BACKEND` selects `django_tasks_db.DatabaseBackend`.
+The scheduler does not reload on code changes. Restart `debugserver` after changing a schedule.
+`debugserver` gives its tasks no stdin. Use `mise run runserver` to stop at a `breakpoint()`.
 
 ## Environment Variables for Docker and your .env file
 

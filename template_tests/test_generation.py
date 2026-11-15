@@ -12,9 +12,8 @@ from conftest import REPO_ROOT
 
 PLACEHOLDER = "{{ project" + "_name }}"  # split so this file is not itself a template
 
-# Everything mise needs to drive a generated project. `mise.toml` alone is not enough: it
-# references file tasks, and a file task that was not copied fails only when someone runs it.
-MISE_FILES = ("mise.toml", ".mise/tasks/dev", ".mise/tasks/bootstrap")
+# mise's config. test_file_tasks_stay_executable covers the file tasks it references.
+MISE_FILES = ("mise.toml",)
 
 # The generated project's GitHub setup. .github is a dot-directory, so it needs --exclude too.
 CI_WORKFLOW = ".github/workflows/ci.yml"
@@ -35,6 +34,10 @@ PLACEHOLDER_IS_DOCUMENTED = {"README.md", "CLAUDE.md"}
 DOCUMENTED_TASK = re.compile(r"mise run ([a-z][a-z0-9-]*)")
 
 
+def _trust(project: Path) -> None:
+    subprocess.run(["mise", "trust", "--quiet"], cwd=project, check=True, capture_output=True)
+
+
 def _stub_env(stubs: Path, bodies: dict[str, str]) -> dict[str, str]:
     """Write shell stubs into `stubs` and return an environment that finds them first on PATH."""
     for name, body in bodies.items():
@@ -45,7 +48,7 @@ def _stub_env(stubs: Path, bodies: dict[str, str]) -> dict[str, str]:
 
 def _mise_tasks(project: Path) -> list[dict]:
     """The tasks mise sees inside a generated project, excluding the user's own global ones."""
-    subprocess.run(["mise", "trust", "--quiet"], cwd=project, check=True, capture_output=True)
+    _trust(project)
     listing = subprocess.run(
         ["mise", "tasks", "--json"],
         cwd=project,
@@ -58,7 +61,7 @@ def _mise_tasks(project: Path) -> list[dict]:
 
 @functools.cache
 def _task_names(root: Path) -> frozenset[str]:
-    """Task names and their aliases — the docs use `mise run runserver`, an alias of debugserver."""
+    """Task names and their aliases, since the docs may name a task by its alias."""
     names = set()
     for task in _mise_tasks(root):
         names.add(task["name"])
@@ -114,14 +117,15 @@ def test_template_tests_stay_behind(generate):
     assert not (project / "template_tests").exists()
 
 
-def test_file_tasks_stay_executable(generate):
-    """mise skips a file task without the executable bit, and says nothing about it."""
+def test_file_tasks_stay_executable(generate, template_dir):
+    """mise skips a file task without the executable bit, and says nothing about it.
+
+    A file task that was not copied fails only when someone runs it, so this checks every one.
+    """
     project = generate()
-    not_executable = [
-        name
-        for name in (".mise/tasks/dev", ".mise/tasks/bootstrap")
-        if not os.access(project / name, os.X_OK)
-    ]
+    tasks = [path.relative_to(template_dir) for path in (template_dir / ".mise/tasks").iterdir()]
+    assert tasks, "the template has no file tasks: the test is not looking anywhere"
+    not_executable = [str(task) for task in tasks if not os.access(project / task, os.X_OK)]
     assert not_executable == []
 
 
@@ -334,3 +338,31 @@ def test_dockerfile_runs_the_entrypoint_unbuffered():
     assert 'ENTRYPOINT ["docker/entrypoint.sh"]' in dockerfile
     assert 'CMD ["web"]' in dockerfile
     assert "ENV PYTHONUNBUFFERED=1" in dockerfile
+
+
+def test_debugserver_runs_server_worker_and_scheduler(generate):
+    """mise runs the dependencies in parallel, and Ctrl-C stops all of them."""
+    tasks = {task["name"]: task for task in _mise_tasks(generate())}
+    assert sorted(tasks["debugserver"]["depends"]) == ["runserver", "scheduler", "worker"]
+
+
+def test_worker_exits_cleanly_without_the_database_backend(generate):
+    """db_worker rejects other backends, and a failing dependency stops debugserver altogether."""
+    project = generate()
+    _trust(project)
+    env = {key: value for key, value in os.environ.items() if key != "TASKS_BACKEND"}
+    result = subprocess.run(
+        ["mise", "run", "worker"], cwd=project, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert "TASKS_BACKEND" in result.stdout + result.stderr
+
+
+def test_mise_disables_output_buffering(generate):
+    """debugserver pipes each task's output, and Python buffers a pipe until the process exits."""
+    project = generate()
+    _trust(project)
+    listing = subprocess.run(
+        ["mise", "env", "--json"], cwd=project, capture_output=True, text=True, check=True
+    )
+    assert json.loads(listing.stdout)["PYTHONUNBUFFERED"] == "1"

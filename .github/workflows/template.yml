@@ -22,8 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
-        with:
-          install_args: python uv
       - name: Test generation
         run: mise run test-template
 
@@ -44,7 +42,6 @@ jobs:
       - uses: jdx/mise-action@v5
         with:
           working_directory: template
-          install_args: python uv
           env: false
       # Bootstrap writes uv.lock, so the keys hash the template's inputs instead.
       - uses: actions/cache@v6

@@ -26,7 +26,8 @@ Run everything through mise. It pins Python and uv, and loads `.env`.
 ```bash
 mise run bootstrap       # first setup: .env, dependencies, CSS, git, pre-commit hook
 mise run upgrade         # upgrade all dependencies
-mise run runserver       # dev server with the Tailwind watcher
+mise run debugserver     # runserver, worker and scheduler together; Ctrl-C stops all
+mise run runserver       # dev server with the Tailwind watcher; use it for breakpoint()
 mise run migrate
 mise run makemigrations
 mise run shell           # shell_plus

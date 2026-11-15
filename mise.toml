@@ -10,12 +10,6 @@
 # uv an interpreter this project does not support.
 python = "3.14"
 uv = "latest"
-# Only needed for `mise run dev`; nothing else in the toolchain uses it.
-# It runs its own tmux server on a socket named after the project
-# directory. Every client of that socket needs this version — a hand-run `tmux -L <project>
-# attach`, and the dev script itself: its `has-session` check discards stderr, so a "protocol
-# version mismatch" would surface as the far more confusing "Session is not running".
-tmux = "3.7c"
 
 # Task files live in two places. `.mise/tasks` is the default and ships with every generated
 # project; `template_tests/tasks` holds the tasks that only make sense in this repository and is
@@ -33,6 +27,8 @@ _.file = ".env"
 # uv downloads a managed CPython of its own when no interpreter matches, which would quietly
 # undo the pin above. Fail instead, so a version mismatch is visible.
 UV_PYTHON_DOWNLOADS = "never"
+# debugserver pipes each task's output. Python buffers a pipe until the process exits.
+PYTHONUNBUFFERED = "1"
 
 [tasks.upgrade]
 description = "Upgrade/install all dependencies defined in pyproject.toml"
@@ -48,14 +44,24 @@ run = "uv run python manage.py migrate"
 description = "Create database migrations"
 run = "uv run python manage.py makemigrations"
 
-[tasks.debugserver]
+[tasks.runserver]
 description = "Start the development server with Tailwind watching"
-alias = "runserver"
 run = "uv run python manage.py tailwind runserver"
+
+[tasks.debugserver]
+description = "Start runserver, the task worker and the scheduler together; Ctrl-C stops all"
+# mise runs dependencies in parallel and stops all of them when one fails.
+depends = ["runserver", "worker", "scheduler"]
 
 [tasks.worker]
 description = "Run queued tasks (needs TASKS_BACKEND=django_tasks_db.DatabaseBackend)"
-run = "uv run python manage.py db_worker"
+# db_worker rejects other backends. Exiting 0 keeps debugserver running.
+run = """
+case "${TASKS_BACKEND:-}" in
+django_tasks_db.*) exec uv run python manage.py db_worker ;;
+*) echo "No worker: TASKS_BACKEND does not select a django_tasks_db backend." ;;
+esac
+"""
 
 [tasks.scheduler]
 description = "Enqueue @cron tasks on their schedule"
