@@ -1,0 +1,24 @@
+"""Run db_worker when the default task backend is django_tasks_db's, and exit cleanly otherwise.
+
+`mise run debugserver` runs this next to runserver. db_worker rejects any other backend, and a
+failing dependency would stop debugserver altogether.
+"""
+
+from importlib import import_module
+
+import djclick as click
+from django.core.management import call_command
+from django.tasks import DEFAULT_TASK_BACKEND_ALIAS, task_backends
+from django_tasks_db import DatabaseBackend
+
+# A string, so the template repository stays valid Python before startproject renders it.
+base = import_module("{{ project_name }}.management.base")
+
+
+@base.command()
+def main():
+    backend = task_backends[DEFAULT_TASK_BACKEND_ALIAS]
+    if not isinstance(backend, DatabaseBackend):
+        click.echo(f"No worker: the default task backend is {type(backend).__name__}.")
+        return
+    call_command("db_worker")

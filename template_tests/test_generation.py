@@ -271,7 +271,8 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
     stub_bodies = {
         "mise": f'echo "{stubs}/python"',
         "python": 'echo "Python 3.14.0"',
-        "uv": ":",
+        # createdb fails as it does without a reachable PostgreSQL server.
+        "uv": f'echo "uv $*" >> "{stubs}/uv.calls"; case "$*" in *createdb*) exit 1;; esac',
         "uvx": ":",
     }
     env = {
@@ -282,7 +283,9 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
         "GIT_COMMITTER_EMAIL": "test@example.com",
     }
     env.pop("MISE_PROJECT_ROOT", None)
-    subprocess.run([".mise/tasks/bootstrap"], cwd=project, env=env, check=True, capture_output=True)
+    bootstrap = subprocess.run(
+        [".mise/tasks/bootstrap"], cwd=project, env=env, check=True, capture_output=True, text=True
+    )
 
     committed = subprocess.run(
         ["git", "ls-files"], cwd=project, capture_output=True, text=True, check=True
@@ -298,6 +301,8 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
     assert (project / "fixtures/initial.project.json").is_file()
     assert (project / "CLAUDE.md").read_text() == "@AGENTS.md\n"
     assert UV_UPDATES in (project / ".github/dependabot.yml").read_text()
+    assert "uv run python manage.py createdb" in (stubs / "uv.calls").read_text().splitlines()
+    assert "DATABASE_URL" in bootstrap.stdout + bootstrap.stderr
 
 
 def _run_entrypoint(project: Path, stubs: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -344,18 +349,6 @@ def test_debugserver_runs_server_worker_and_scheduler(generate):
     """mise runs the dependencies in parallel, and Ctrl-C stops all of them."""
     tasks = {task["name"]: task for task in _mise_tasks(generate())}
     assert sorted(tasks["debugserver"]["depends"]) == ["runserver", "scheduler", "worker"]
-
-
-def test_worker_exits_cleanly_without_the_database_backend(generate):
-    """db_worker rejects other backends, and a failing dependency stops debugserver altogether."""
-    project = generate()
-    _trust(project)
-    env = {key: value for key, value in os.environ.items() if key != "TASKS_BACKEND"}
-    result = subprocess.run(
-        ["mise", "run", "worker"], cwd=project, env=env, capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr
-    assert "TASKS_BACKEND" in result.stdout + result.stderr
 
 
 def test_mise_disables_output_buffering(generate):

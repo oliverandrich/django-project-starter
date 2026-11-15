@@ -54,14 +54,8 @@ description = "Start runserver, the task worker and the scheduler together; Ctrl
 depends = ["runserver", "worker", "scheduler"]
 
 [tasks.worker]
-description = "Run queued tasks (needs TASKS_BACKEND=django_tasks_db.DatabaseBackend)"
-# db_worker rejects other backends. Exiting 0 keeps debugserver running.
-run = """
-case "${TASKS_BACKEND:-}" in
-django_tasks_db.*) exec uv run python manage.py db_worker ;;
-*) echo "No worker: TASKS_BACKEND does not select a django_tasks_db backend." ;;
-esac
-"""
+description = "Run queued tasks; exits at once unless the task backend is django_tasks_db's"
+run = "uv run python manage.py worker"
 
 [tasks.scheduler]
 description = "Enqueue @cron tasks on their schedule"

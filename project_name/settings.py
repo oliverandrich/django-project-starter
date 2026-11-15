@@ -9,7 +9,6 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 
-from dj_lite import sqlite_config
 from django.utils.translation import gettext_lazy as _
 from environs import Env
 
@@ -124,12 +123,8 @@ WSGI_APPLICATION = "{{ project_name }}.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-# Default: SQLite with production-ready settings via dj-lite
-# Override with DATABASE_URL for PostgreSQL, MySQL, etc.
-if env.str("DATABASE_URL", default=""):
-    DATABASES = {"default": env.dj_db_url("DATABASE_URL")}
-else:
-    DATABASES = {"default": sqlite_config(BASE_DIR)}
+# PostgreSQL only. The default reaches a local server over its Unix socket as the current user.
+DATABASES = {"default": env.dj_db_url("DATABASE_URL", default="postgres:///{{ project_name }}")}
 
 
 # Authentication backends
@@ -209,13 +204,11 @@ CACHES = {"default": env.dj_cache_url("CACHE_URL", default="locmem://")}
 
 # Tasks
 # https://docs.djangoproject.com/en/6.1/topics/tasks/
-# The immediate backend runs a task inside enqueue() and needs no worker.
-# TASKS_BACKEND=django_tasks_db.DatabaseBackend queues tasks for `manage.py db_worker`.
+# The database backend queues tasks for `manage.py db_worker`.
+# TASKS_BACKEND=django.tasks.backends.immediate.ImmediateBackend runs them inside enqueue().
 TASKS = {
     "default": {
-        "BACKEND": env.str(
-            "TASKS_BACKEND", default="django.tasks.backends.immediate.ImmediateBackend"
-        ),
+        "BACKEND": env.str("TASKS_BACKEND", default="django_tasks_db.DatabaseBackend"),
     },
 }
 

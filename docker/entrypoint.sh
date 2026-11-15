@@ -18,7 +18,7 @@ web)
         --process-name "granian [{{ project_name }}]"
     ;;
 worker)
-    # Runs tasks only with TASKS_BACKEND=django_tasks_db.DatabaseBackend.
+    # db_worker fails on any task backend other than django_tasks_db's, the default.
     exec python manage.py db_worker
     ;;
 scheduler)

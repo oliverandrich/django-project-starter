@@ -6,7 +6,7 @@ I took the inspiration from Jeff Triplett's [django-startproject](https://github
 
 The template is also inspired by Carlton Gibson's Post [The Single Folder Django Project Layout](https://noumenal.es/notes/django/single-folder-layout/). It uses the single folder layout as a start as I always run in the same situation Carlton describes in his post. If you have to split the project into several apps, you can always call `python manage.py startapp` later on.
 
-Out of the box SQLite is configured, but you can easily activate MySQL or Postgres support.
+The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-final`.
 
 ## Features
 
@@ -18,12 +18,12 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - environs\[django\]
 - heroicons
 - whitenoise
-- Production-ready SQLite settings via [dj-lite](https://github.com/adamghill/dj-lite)
+- PostgreSQL through psycopg 3; `mise run bootstrap` creates the database
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
 - htmx served locally through django-htmx.
-- Background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them once `TASKS_BACKEND` selects it, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. The scheduler locks through PostgreSQL or SQLite, so a second one exits.
+- Background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them in PostgreSQL, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. An advisory lock keeps a second scheduler from running.
 - A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
 
 ### Development tools
@@ -51,7 +51,7 @@ $ uv run --with=django django-admin startproject \
 
 $ cd example_project
 $ mise trust          # once, so mise reads mise.toml
-$ mise run bootstrap  # .env, dependencies, first CSS build, git, pre-commit hook
+$ mise run bootstrap  # .env, dependencies, database, first CSS build, git, pre-commit hook
 $ mise run debugserver
 ```
 
@@ -103,7 +103,7 @@ mise run lint
 mise run test
 ```
 
-`mise run worker` exits at once unless `TASKS_BACKEND` selects `django_tasks_db.DatabaseBackend`.
+`mise run worker` exits at once when `TASKS_BACKEND` selects a backend other than django_tasks_db's.
 The scheduler does not reload on code changes. Restart `debugserver` after changing a schedule.
 `debugserver` gives its tasks no stdin. Use `mise run runserver` to stop at a `breakpoint()`.
 
@@ -116,13 +116,13 @@ Or when run as a [12-Factor application](https://12factor.net).
 | ALLOWED_HOSTS           | []                                                 | settings.py   |
 | CACHE_URL               | "locmem://"                                        | settings.py   |
 | CSRF_TRUSTED_ORIGINS    | []                                                 | settings.py   |
-| DATABASE_URL            | SQLite via dj-lite                                 | settings.py   |
+| DATABASE_URL            | "postgres:///<project>" (local socket)             | settings.py   |
 | DEBUG                   | False                                              | settings.py   |
 | EMAIL_URL               | "console:"                                         | settings.py   |
 | INTERNAL_IPS            | []                                                 | settings.py   |
 | LANGUAGE_CODE           | "en"                                               | settings.py   |
 | SECRET_KEY              |                                                    | settings.py   |
-| TASKS_BACKEND           | "django.tasks.backends.immediate.ImmediateBackend" | settings.py   |
+| TASKS_BACKEND           | "django_tasks_db.DatabaseBackend"                  | settings.py   |
 | TIME_ZONE               | "UTC"                                              | settings.py   |
 | GRANIAN_WORKERS         | 1                                                  | entrypoint.sh |
 | GRANIAN_RUNTIME_THREADS | 1                                                  | entrypoint.sh |
@@ -134,6 +134,7 @@ The `docker/Dockerfile` uses a multi stage process to embrace caching for buildi
 
 The image starts the web server by default. Pass `worker` or `scheduler` as the command to start
 the task worker or the cron scheduler from the same image. Only the web server runs migrations.
+Every process needs `DATABASE_URL` pointing at the PostgreSQL server.
 
 ## License
 

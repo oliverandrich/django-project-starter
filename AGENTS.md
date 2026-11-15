@@ -51,9 +51,10 @@ Settings read the environment through environs, following the 12-factor approach
 Add new settings as environment variables with a development default.
 Do not add a second settings module per environment.
 
-SQLite is the default database, tuned by dj-lite.
-`DATABASE_URL` switches to PostgreSQL or MySQL.
-PostgreSQL needs psycopg from the `postgres` extra, which `mise run bootstrap` installs.
+PostgreSQL is the only supported database, through psycopg 3.
+`DATABASE_URL` defaults to `postgres:///<package>` over the local Unix socket.
+`mise run manage createdb` creates that database; `mise run bootstrap` calls it.
+Tests need a running PostgreSQL server and the CREATEDB privilege.
 
 ## Frontend
 
@@ -89,9 +90,8 @@ def main(logger, source):
 
 Tasks use Django's tasks framework, `django.tasks`.
 Define them in `<package>/tasks.py` with `@task`.
-`TASKS_BACKEND` selects the backend.
-The default `ImmediateBackend` runs a task inside `enqueue()` and needs no worker.
-`TASKS_BACKEND=django_tasks_db.DatabaseBackend` stores tasks in the database for `mise run worker`.
+The default backend, `django_tasks_db.DatabaseBackend`, stores tasks for `mise run worker`.
+`TASKS_BACKEND=django.tasks.backends.immediate.ImmediateBackend` runs a task inside `enqueue()`.
 
 django-crontask schedules recurring tasks.
 Put `@cron("<crontab>")` above `@task`.
@@ -99,11 +99,9 @@ The day-of-week field takes names such as `Mon`, not numbers.
 `mise run scheduler` enqueues each task on its schedule, in `TIME_ZONE`.
 `prune_task_results` deletes finished results older than 14 days at 03:00.
 
-`<package>/scheduler_lock.py` lets one scheduler run per database.
-It uses an advisory lock on PostgreSQL and a file lock next to the SQLite file.
+`<package>/scheduler_lock.py` lets one scheduler run per database through an advisory lock.
 A second scheduler exits after 15 seconds.
-On other databases, run a single scheduler.
-A transaction-pooling PgBouncer breaks the PostgreSQL lock.
+A transaction-pooling PgBouncer breaks the lock.
 
 ## Tests
 

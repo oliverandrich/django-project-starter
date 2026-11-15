@@ -28,9 +28,23 @@ jobs:
   generated-project:
     if: github.repository == 'oliverandrich/django-project-starter'
     runs-on: ubuntu-latest
-    # Mirrors ci.yml, which runs without the .env that bootstrap writes.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Mirrors ci.yml, which runs without the .env that bootstrap writes. DATABASE_URL names a
+    # database that does not exist yet, so bootstrap's createdb has something to create.
     env:
       SECRET_KEY: ci-only-not-secret
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/acme_shop
     defaults:
       run:
         working-directory: acme_shop

@@ -33,6 +33,13 @@ python="$(mise which python)"
 uv sync --all-extras --python "$python"
 green "Installed dependencies on $("$python" --version)."
 
+# Needs a reachable PostgreSQL server. A failure only warns, so the remaining setup still runs.
+if uv run python manage.py createdb; then
+    green "Created the database, unless it existed."
+else
+    printf '\033[33m!\033[0m %s\n' "No database: start PostgreSQL or set DATABASE_URL in .env, then run 'mise run manage createdb'."
+fi
+
 uv run python manage.py tailwind build >/dev/null
 green "Built the initial tailwind.css."
 

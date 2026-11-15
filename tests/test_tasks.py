@@ -1,8 +1,5 @@
-import os
-import runpy
-from importlib import import_module
 from datetime import timedelta
-from unittest import mock
+from importlib import import_module
 
 from crontask import scheduler
 from django.tasks import TaskResultStatus, task_backends
@@ -10,8 +7,9 @@ from django.tasks.backends.immediate import ImmediateBackend
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from django_tasks_db.models import DBTaskResult
-from environs import Env
 from model_bakery import baker
+
+from tests.utils import evaluate_settings
 
 prune_task_results = import_module("{{ project_name }}.tasks").prune_task_results
 suite_settings = import_module("{{ project_name }}.test_runner").suite_settings
@@ -20,20 +18,14 @@ IMMEDIATE = "django.tasks.backends.immediate.ImmediateBackend"
 DATABASE = "django_tasks_db.DatabaseBackend"
 
 
-def evaluate_settings(**environ: str) -> dict:
-    """Evaluate the settings module against `environ` alone, without reading `.env`."""
-    with mock.patch.dict(os.environ, environ, clear=True), mock.patch.object(Env, "read_env"):
-        return runpy.run_module("{{ project_name }}.settings")
-
-
 class TasksSettingTest(SimpleTestCase):
-    def test_immediate_backend_by_default(self):
+    def test_database_backend_by_default(self):
         tasks = evaluate_settings()["TASKS"]
-        self.assertEqual(tasks["default"]["BACKEND"], IMMEDIATE)
+        self.assertEqual(tasks["default"]["BACKEND"], DATABASE)
 
     def test_tasks_backend_selects_the_backend(self):
-        tasks = evaluate_settings(TASKS_BACKEND=DATABASE)["TASKS"]
-        self.assertEqual(tasks["default"]["BACKEND"], DATABASE)
+        tasks = evaluate_settings(TASKS_BACKEND=IMMEDIATE)["TASKS"]
+        self.assertEqual(tasks["default"]["BACKEND"], IMMEDIATE)
 
 
 class SuiteSettingsTest(SimpleTestCase):
