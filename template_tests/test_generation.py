@@ -359,3 +359,14 @@ def test_mise_disables_output_buffering(generate):
         ["mise", "env", "--json"], cwd=project, capture_output=True, text=True, check=True
     )
     assert json.loads(listing.stdout)["PYTHONUNBUFFERED"] == "1"
+
+
+def test_project_ci_skips_the_template_repository():
+    """The template's pyproject.toml names no valid package, so ci.yml cannot pass here."""
+    workflow = (REPO_ROOT / CI_WORKFLOW).read_text()
+    jobs_block = workflow.split("\njobs:\n", 1)[1]
+    jobs = re.split(r"^  (?=[a-z][a-z0-9-]*:$)", jobs_block, flags=re.MULTILINE)[1:]
+    guard = "\n    if: github.repository != 'oliverandrich/django-project-starter'\n"
+    assert jobs, "ci.yml defines no jobs"
+    unguarded = [job.split(":", 1)[0] for job in jobs if guard not in job]
+    assert unguarded == []

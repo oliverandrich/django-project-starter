@@ -23,7 +23,8 @@ This repository is a template for `django-admin startproject`. Generation replac
 
 Two workflows live in `.github/workflows/`:
 
-- `ci.yml` belongs to the generated project. It is disabled in this repository, where it cannot pass.
+- `ci.yml` belongs to the generated project. Its jobs skip this repository through an `if:` condition,
+  because they cannot pass here.
 - `template.yml` tests this repository. It ships with every project, and `mise run bootstrap`
   deletes it there.
 
