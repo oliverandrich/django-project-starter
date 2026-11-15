@@ -32,6 +32,11 @@ dev = [
   "basedpyright>=1.40.2",
 ]
 
+# django-types 0.24.0 has no stubs for django.tasks. They are merged on main (#393) but unreleased.
+# Drop this source once a release ships them.
+[tool.uv.sources]
+django-types = { git = "https://github.com/sbdchd/django-types", rev = "25e39e15dd429a53ecaa79df9829bf1fa06a31dc" }
+
 [tool.basedpyright]
 include = ["{{ project_name }}", "tests"]
 exclude = ["**/migrations"]
