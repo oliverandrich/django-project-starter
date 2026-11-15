@@ -1,0 +1,15 @@
+"""Tasks of the project. `manage.py crontask` imports this module to register `@cron` schedules."""
+
+from crontask import cron
+from django.core.management import call_command
+from django.tasks import DEFAULT_TASK_BACKEND_ALIAS, task, task_backends
+from django_tasks_db import DatabaseBackend
+
+
+@cron("0 3 * * *")
+@task
+def prune_task_results() -> None:
+    """Delete finished task results older than two weeks from every queue."""
+    # prune_db_task_results rejects any other backend.
+    if isinstance(task_backends[DEFAULT_TASK_BACKEND_ALIAS], DatabaseBackend):
+        call_command("prune_db_task_results", queue_name="*", min_age_days=14, verbosity=0)

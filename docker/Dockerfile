@@ -5,6 +5,8 @@ FROM debian:stable-slim AS linux-base
 
 # Assure UTF-8 encoding is used.
 ENV LC_CTYPE=C.utf8
+# Write output at once. Without a tty, Python buffers stdout until the process exits.
+ENV PYTHONUNBUFFERED=1
 # Location of the virtual environment
 ENV UV_PROJECT_ENVIRONMENT="/venv"
 # Location of the python installation via uv
@@ -68,7 +70,8 @@ RUN chown -R appuser:appuser /app $UV_PROJECT_ENVIRONMENT $UV_PYTHON_INSTALL_DIR
 # Switch to the non-root user
 USER appuser
 
-# Start the application server
+# Start the application server. `docker run <image> worker` or `scheduler` starts the others.
 WORKDIR /app
 EXPOSE 8000
-CMD ["docker/entrypoint.sh"]
+ENTRYPOINT ["docker/entrypoint.sh"]
+CMD ["web"]

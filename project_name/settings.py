@@ -61,6 +61,8 @@ INSTALLED_APPS += [
     "django_htmx",
     "django_tailwind_cli",
     "django_extensions",
+    "django_tasks_db",
+    "crontask",
 ]
 
 # Our apps
@@ -204,6 +206,18 @@ vars().update(EMAIL_CONFIG)
 # Caches
 # https://docs.djangoproject.com/en/6.1/ref/settings/#caches
 CACHES = {"default": env.dj_cache_url("CACHE_URL", default="locmem://")}
+
+# Tasks
+# https://docs.djangoproject.com/en/6.1/topics/tasks/
+# The immediate backend runs a task inside enqueue() and needs no worker.
+# TASKS_BACKEND=django_tasks_db.DatabaseBackend queues tasks for `manage.py db_worker`.
+TASKS = {
+    "default": {
+        "BACKEND": env.str(
+            "TASKS_BACKEND", default="django.tasks.backends.immediate.ImmediateBackend"
+        ),
+    },
+}
 
 # django-tailwind-cli settings
 # https://django-tailwind-cli.andrich.me/settings/

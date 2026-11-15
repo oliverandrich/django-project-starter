@@ -1,0 +1,71 @@
+import os
+import runpy
+from importlib import import_module
+from datetime import timedelta
+from unittest import mock
+
+from crontask import scheduler
+from django.tasks import TaskResultStatus, task_backends
+from django.tasks.backends.immediate import ImmediateBackend
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
+from django_tasks_db.models import DBTaskResult
+from environs import Env
+from model_bakery import baker
+
+prune_task_results = import_module("{{ project_name }}.tasks").prune_task_results
+suite_settings = import_module("{{ project_name }}.test_runner").suite_settings
+
+IMMEDIATE = "django.tasks.backends.immediate.ImmediateBackend"
+DATABASE = "django_tasks_db.DatabaseBackend"
+
+
+def evaluate_settings(**environ: str) -> dict:
+    """Evaluate the settings module against `environ` alone, without reading `.env`."""
+    with mock.patch.dict(os.environ, environ, clear=True), mock.patch.object(Env, "read_env"):
+        return runpy.run_module("{{ project_name }}.settings")
+
+
+class TasksSettingTest(SimpleTestCase):
+    def test_immediate_backend_by_default(self):
+        tasks = evaluate_settings()["TASKS"]
+        self.assertEqual(tasks["default"]["BACKEND"], IMMEDIATE)
+
+    def test_tasks_backend_selects_the_backend(self):
+        tasks = evaluate_settings(TASKS_BACKEND=DATABASE)["TASKS"]
+        self.assertEqual(tasks["default"]["BACKEND"], DATABASE)
+
+
+class SuiteSettingsTest(SimpleTestCase):
+    def test_tasks_run_immediately(self):
+        # A project with TASKS_BACKEND in .env would otherwise queue tasks no test runs.
+        with override_settings(TASKS={"default": {"BACKEND": DATABASE}}), suite_settings():
+            self.assertIsInstance(task_backends["default"], ImmediateBackend)
+
+
+@override_settings(TASKS={"default": {"BACKEND": DATABASE}})
+class PruneTaskResultsTest(TestCase):
+    def make_result(self, *, age: timedelta) -> DBTaskResult:
+        return baker.make(
+            DBTaskResult,
+            status=TaskResultStatus.SUCCESSFUL,
+            finished_at=timezone.now() - age,
+            backend_name="default",
+            queue_name="reports",
+        )
+
+    def test_deletes_results_older_than_two_weeks_in_every_queue(self):
+        old = self.make_result(age=timedelta(days=15))
+        recent = self.make_result(age=timedelta(days=1))
+        prune_task_results.call()
+        remaining = DBTaskResult.objects.values_list("id", flat=True)
+        self.assertNotIn(old.id, remaining)
+        self.assertIn(recent.id, remaining)
+
+    @override_settings(TASKS={"default": {"BACKEND": IMMEDIATE}})
+    def test_does_nothing_without_the_database_backend(self):
+        prune_task_results.call()
+
+    def test_runs_daily(self):
+        names = [job.name for job in scheduler.get_jobs()]
+        self.assertIn(prune_task_results.name, names)

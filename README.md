@@ -23,6 +23,7 @@ Out of the box SQLite is configured, but you can easily activate MySQL or Postgr
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
 - htmx served locally through django-htmx.
+- Background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them once `TASKS_BACKEND` selects it, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. The scheduler locks through PostgreSQL or SQLite, so a second one exits.
 - A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
 
 ### Development tools
@@ -85,6 +86,12 @@ mise run debugserver
 # Start the interactive django shell
 mise run shell
 
+# Run queued tasks (needs TASKS_BACKEND=django_tasks_db.DatabaseBackend)
+mise run worker
+
+# Enqueue @cron tasks on their schedule
+mise run scheduler
+
 # Start manage.py for all cases not covered by other commands
 mise run manage ...
 
@@ -103,25 +110,29 @@ directory, so it is reachable from a plain shell with `tmux -L <project> attach`
 
 Or when run as a [12-Factor application](https://12factor.net).
 
-| Environment Variable    | Default                                           | Location      |
-| ----------------------- | ------------------------------------------------- | ------------- |
-| ALLOWED_HOSTS           | []                                                | settings.py   |
-| CACHE_URL               | "locmem://"                                       | settings.py   |
-| CSRF_TRUSTED_ORIGINS    | []                                                | settings.py   |
-| DATABASE_URL            | SQLite via dj-lite                                | settings.py   |
-| DEBUG                   | False                                             | settings.py   |
-| EMAIL_URL               | "console:"                                        | settings.py   |
-| INTERNAL_IPS            | []                                                | settings.py   |
-| LANGUAGE_CODE           | "en"                                              | settings.py   |
-| SECRET_KEY              |                                                   | settings.py   |
-| TIME_ZONE               | "UTC"                                             | settings.py   |
-| GRANIAN_WORKERS         | 1                                                 | entrypoint.sh |
-| GRANIAN_RUNTIME_THREADS | 1                                                 | entrypoint.sh |
-| GRANIAN_*               | see <https://github.com/emmett-framework/granian> | entrypoint.sh |
+| Environment Variable    | Default                                            | Location      |
+| ----------------------- | -------------------------------------------------- | ------------- |
+| ALLOWED_HOSTS           | []                                                 | settings.py   |
+| CACHE_URL               | "locmem://"                                        | settings.py   |
+| CSRF_TRUSTED_ORIGINS    | []                                                 | settings.py   |
+| DATABASE_URL            | SQLite via dj-lite                                 | settings.py   |
+| DEBUG                   | False                                              | settings.py   |
+| EMAIL_URL               | "console:"                                         | settings.py   |
+| INTERNAL_IPS            | []                                                 | settings.py   |
+| LANGUAGE_CODE           | "en"                                               | settings.py   |
+| SECRET_KEY              |                                                    | settings.py   |
+| TASKS_BACKEND           | "django.tasks.backends.immediate.ImmediateBackend" | settings.py   |
+| TIME_ZONE               | "UTC"                                              | settings.py   |
+| GRANIAN_WORKERS         | 1                                                  | entrypoint.sh |
+| GRANIAN_RUNTIME_THREADS | 1                                                  | entrypoint.sh |
+| GRANIAN_*               | see <https://github.com/emmett-framework/granian>  | entrypoint.sh |
 
 ## Docker and docker-compose
 
 The `docker/Dockerfile` uses a multi stage process to embrace caching for building the container images.
+
+The image starts the web server by default. Pass `worker` or `scheduler` as the command to start
+the task worker or the cron scheduler from the same image. Only the web server runs migrations.
 
 ## License
 

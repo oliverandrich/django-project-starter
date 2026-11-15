@@ -35,6 +35,14 @@ PLACEHOLDER_IS_DOCUMENTED = {"README.md", "CLAUDE.md"}
 DOCUMENTED_TASK = re.compile(r"mise run ([a-z][a-z0-9-]*)")
 
 
+def _stub_env(stubs: Path, bodies: dict[str, str]) -> dict[str, str]:
+    """Write shell stubs into `stubs` and return an environment that finds them first on PATH."""
+    for name, body in bodies.items():
+        (stubs / name).write_text(f"#!/bin/sh\n{body}\n")
+        (stubs / name).chmod(0o755)
+    return {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"}
+
+
 def _mise_tasks(project: Path) -> list[dict]:
     """The tasks mise sees inside a generated project, excluding the user's own global ones."""
     subprocess.run(["mise", "trust", "--quiet"], cwd=project, check=True, capture_output=True)
@@ -256,17 +264,14 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
     (project / "fixtures/initial.project.json").write_text("[]")
 
     stubs = tmp_path_factory.mktemp("stubs")
-    for name, body in (
-        ("mise", f'echo "{stubs}/python"'),
-        ("python", 'echo "Python 3.14.0"'),
-        ("uv", ":"),
-        ("uvx", ":"),
-    ):
-        (stubs / name).write_text(f"#!/bin/sh\n{body}\n")
-        (stubs / name).chmod(0o755)
+    stub_bodies = {
+        "mise": f'echo "{stubs}/python"',
+        "python": 'echo "Python 3.14.0"',
+        "uv": ":",
+        "uvx": ":",
+    }
     env = {
-        **os.environ,
-        "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}",
+        **_stub_env(stubs, stub_bodies),
         "GIT_AUTHOR_NAME": "Test",
         "GIT_AUTHOR_EMAIL": "test@example.com",
         "GIT_COMMITTER_NAME": "Test",
@@ -289,3 +294,43 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
     assert (project / "fixtures/initial.project.json").is_file()
     assert (project / "CLAUDE.md").read_text() == "@AGENTS.md\n"
     assert UV_UPDATES in (project / ".github/dependabot.yml").read_text()
+
+
+def _run_entrypoint(project: Path, stubs: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run docker/entrypoint.sh with python and granian replaced by stubs that echo their argv."""
+    env = _stub_env(stubs, {name: f'echo "{name} $*"' for name in ("python", "granian")})
+    return subprocess.run(
+        ["docker/entrypoint.sh", *args], cwd=project, env=env, capture_output=True, text=True
+    )
+
+
+def test_entrypoint_starts_each_process(generate, tmp_path_factory):
+    """One image runs the web server, the task worker and the cron scheduler."""
+    project = generate("acme_shop")
+    stubs = tmp_path_factory.mktemp("stubs")
+
+    web = _run_entrypoint(project, stubs).stdout.splitlines()
+    assert web[1] == "python manage.py migrate"
+    assert web[-1].startswith("granian acme_shop.wsgi:application")
+
+    worker = _run_entrypoint(project, stubs, "worker").stdout.splitlines()
+    assert worker == ["python manage.py db_worker"]
+
+    scheduler = _run_entrypoint(project, stubs, "scheduler").stdout.splitlines()
+    assert scheduler == ["python manage.py crontask --no-heartbeat"]
+
+    # Any other command runs as given, so one-off commands such as createsuperuser still work.
+    other = _run_entrypoint(project, stubs, "python", "manage.py", "createsuperuser")
+    assert other.stdout.splitlines() == ["python manage.py createsuperuser"]
+
+
+def test_dockerfile_runs_the_entrypoint_unbuffered():
+    """No docker build runs here, so the Dockerfile lines themselves are checked.
+
+    With CMD alone, `docker run <image> worker` would replace the script instead of naming it.
+    Without a tty, Python buffers stdout, and container logs would show output only at exit.
+    """
+    dockerfile = (REPO_ROOT / "docker/Dockerfile").read_text()
+    assert 'ENTRYPOINT ["docker/entrypoint.sh"]' in dockerfile
+    assert 'CMD ["web"]' in dockerfile
+    assert "ENV PYTHONUNBUFFERED=1" in dockerfile

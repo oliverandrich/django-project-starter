@@ -30,6 +30,8 @@ mise run runserver       # dev server with the Tailwind watcher
 mise run migrate
 mise run makemigrations
 mise run shell           # shell_plus
+mise run worker          # run queued tasks (database task backend only)
+mise run scheduler       # enqueue @cron tasks on their schedule
 mise run manage <args>   # any other manage.py command
 mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade
 mise run test            # test suite with coverage
@@ -50,6 +52,7 @@ Do not add a second settings module per environment.
 
 SQLite is the default database, tuned by dj-lite.
 `DATABASE_URL` switches to PostgreSQL or MySQL.
+PostgreSQL needs psycopg from the `postgres` extra, which `mise run bootstrap` installs.
 
 ## Frontend
 
@@ -81,15 +84,38 @@ def main(logger, source):
     logger.info("importing from %s", source)
 ```
 
+## Tasks
+
+Tasks use Django's tasks framework, `django.tasks`.
+Define them in `<package>/tasks.py` with `@task`.
+`TASKS_BACKEND` selects the backend.
+The default `ImmediateBackend` runs a task inside `enqueue()` and needs no worker.
+`TASKS_BACKEND=django_tasks_db.DatabaseBackend` stores tasks in the database for `mise run worker`.
+
+django-crontask schedules recurring tasks.
+Put `@cron("<crontab>")` above `@task`.
+The day-of-week field takes names such as `Mon`, not numbers.
+`mise run scheduler` enqueues each task on its schedule, in `TIME_ZONE`.
+`prune_task_results` deletes finished results older than 14 days at 03:00.
+
+`<package>/scheduler_lock.py` lets one scheduler run per database.
+It uses an advisory lock on PostgreSQL and a file lock next to the SQLite file.
+A second scheduler exits after 15 seconds.
+On other databases, run a single scheduler.
+A transaction-pooling PgBouncer breaks the PostgreSQL lock.
+
 ## Tests
 
 Tests use Django's test framework with django-test-plus and model-bakery.
 The test runner in `<package>/test_runner.py` adds rich output.
 It also swaps the manifest static storage for a plain one, so tests need no `collectstatic`.
+It sets the default task backend to `ImmediateBackend`, so enqueued tasks run inside the test.
 Write a failing test before a fix or a feature.
 
 ## Production
 
 WhiteNoise serves static files with hashed names from the manifest.
 The Docker image runs Granian on port 8000 and migrates on start.
+The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
+Only the web process migrates, so start the others after it.
 `SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.

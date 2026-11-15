@@ -53,6 +53,15 @@ description = "Start the development server with Tailwind watching"
 alias = "runserver"
 run = "uv run python manage.py tailwind runserver"
 
+[tasks.worker]
+description = "Run queued tasks (needs TASKS_BACKEND=django_tasks_db.DatabaseBackend)"
+run = "uv run python manage.py db_worker"
+
+[tasks.scheduler]
+description = "Enqueue @cron tasks on their schedule"
+# The heartbeat serves Sentry cron monitors and otherwise adds a task every minute.
+run = "uv run python manage.py crontask --no-heartbeat"
+
 [tasks.shell]
 description = "Start an interactive shell (shell_plus)"
 run = "uv run python manage.py shell_plus"
