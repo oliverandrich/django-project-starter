@@ -320,7 +320,7 @@ def test_entrypoint_starts_each_process(generate, tmp_path_factory):
 
     web = _run_entrypoint(project, stubs).stdout.splitlines()
     assert web[1] == "python manage.py migrate"
-    assert web[-1].startswith("granian acme_shop.wsgi:application")
+    assert web[-1] == "python manage.py serve"
 
     worker = _run_entrypoint(project, stubs, "worker").stdout.splitlines()
     assert worker == ["python manage.py db_worker"]
@@ -343,12 +343,14 @@ def test_dockerfile_runs_the_entrypoint_unbuffered():
     assert 'ENTRYPOINT ["docker/entrypoint.sh"]' in dockerfile
     assert 'CMD ["web"]' in dockerfile
     assert "ENV PYTHONUNBUFFERED=1" in dockerfile
+    # manage.py serve runs granian, which otherwise binds to 127.0.0.1 inside the container.
+    assert "ENV GRANIAN_HOST=0.0.0.0" in dockerfile
 
 
-def test_debugserver_runs_server_worker_and_scheduler(generate):
+def test_debugserver_runs_server_tailwind_worker_and_scheduler(generate):
     """mise runs the dependencies in parallel, and Ctrl-C stops all of them."""
     tasks = {task["name"]: task for task in _mise_tasks(generate())}
-    assert sorted(tasks["debugserver"]["depends"]) == ["runserver", "scheduler", "worker"]
+    assert sorted(tasks["debugserver"]["depends"]) == ["scheduler", "serve", "tailwind", "worker"]
 
 
 def test_mise_disables_output_buffering(generate):

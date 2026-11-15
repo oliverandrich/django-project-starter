@@ -23,3 +23,17 @@ class DatabaseSettingTest(SimpleTestCase):
             (database["HOST"], database["PORT"], database["NAME"], database["USER"]),
             ("db.example.com", 5433, "shop", "app"),
         )
+
+    def test_connection_pool_by_default(self):
+        database = evaluate_settings()["DATABASES"]["default"]
+        self.assertEqual(database["OPTIONS"]["pool"], {"min_size": 1, "max_size": 10})
+
+    def test_pool_size_comes_from_the_environment(self):
+        environ = {"DATABASE_POOL_MIN_SIZE": "2", "DATABASE_POOL_MAX_SIZE": "20"}
+        database = evaluate_settings(**environ)["DATABASES"]["default"]
+        self.assertEqual(database["OPTIONS"]["pool"], {"min_size": 2, "max_size": 20})
+
+    def test_database_pool_turns_the_pool_off(self):
+        # PgBouncer in transaction mode needs Django's pool off.
+        database = evaluate_settings(DATABASE_POOL="false")["DATABASES"]["default"]
+        self.assertNotIn("pool", database.get("OPTIONS", {}))

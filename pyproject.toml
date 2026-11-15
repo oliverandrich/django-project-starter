@@ -14,16 +14,16 @@ dependencies = [
   "heroicons>=2.14.0",
   "whitenoise>=6.12.0",
   "django-tailwind-cli[django-extensions]>=4.8.1",
-  "psycopg[binary]>=3.3.9",
+  "psycopg[binary,pool]>=3.3.9",
+  "granian[pname]>=2.8.8",
   "django-tasks-db>=0.13.0",
   "django-crontask>=2.2.0",
 ]
 
-[project.optional-dependencies]
-granian = ["granian[pname]>=2.8.4"]
-
 [dependency-groups]
 dev = [
+  # manage.py serve --reload, used by mise run debugserver.
+  "granian[reload]>=2.8.8",
   "django-types>=0.24.0",
   "faker>=40.40.0",
   "ipdb>=0.13.13",

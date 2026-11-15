@@ -125,6 +125,15 @@ WSGI_APPLICATION = "{{ project_name }}.wsgi.application"
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 # PostgreSQL only. The default reaches a local server over its Unix socket as the current user.
 DATABASES = {"default": env.dj_db_url("DATABASE_URL", default="postgres:///{{ project_name }}")}
+# Django's psycopg pool, one per process.
+# Persistent connections do not carry over between ASGI requests.
+# DATABASE_POOL=false turns it off, which PgBouncer in transaction mode needs.
+# Under ASGI every concurrent sync view holds one connection, so max_size caps that concurrency.
+if env.bool("DATABASE_POOL", default=True):
+    DATABASES["default"].setdefault("OPTIONS", {})["pool"] = {
+        "min_size": env.int("DATABASE_POOL_MIN_SIZE", default=1),
+        "max_size": env.int("DATABASE_POOL_MAX_SIZE", default=10),
+    }
 
 
 # Authentication backends

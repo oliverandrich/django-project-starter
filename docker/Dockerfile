@@ -7,6 +7,8 @@ FROM debian:stable-slim AS linux-base
 ENV LC_CTYPE=C.utf8
 # Write output at once. Without a tty, Python buffers stdout until the process exits.
 ENV PYTHONUNBUFFERED=1
+# manage.py serve runs granian, which binds to 127.0.0.1 unless told otherwise.
+ENV GRANIAN_HOST=0.0.0.0
 # Location of the virtual environment
 ENV UV_PROJECT_ENVIRONMENT="/venv"
 # Location of the python installation via uv

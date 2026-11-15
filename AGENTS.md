@@ -26,8 +26,8 @@ Run everything through mise. It pins Python and uv, and loads `.env`.
 ```bash
 mise run bootstrap       # first setup: .env, dependencies, CSS, git, pre-commit hook
 mise run upgrade         # upgrade all dependencies
-mise run debugserver     # runserver, worker and scheduler together; Ctrl-C stops all
-mise run runserver       # dev server with the Tailwind watcher; use it for breakpoint()
+mise run debugserver     # granian (ASGI), Tailwind, worker and scheduler; Ctrl-C stops all
+mise run runserver       # WSGI dev server with Tailwind; use it for breakpoint()
 mise run migrate
 mise run makemigrations
 mise run shell           # shell_plus
@@ -55,6 +55,9 @@ PostgreSQL is the only supported database, through psycopg 3.
 `DATABASE_URL` defaults to `postgres:///<package>` over the local Unix socket.
 `mise run manage createdb` creates that database; `mise run bootstrap` calls it.
 Tests need a running PostgreSQL server and the CREATEDB privilege.
+Django's connection pool is on; `DATABASE_POOL=false` turns it off for PgBouncer in transaction mode.
+Each process holds 1 to 10 connections, set by `DATABASE_POOL_MIN_SIZE` and `DATABASE_POOL_MAX_SIZE`.
+Under ASGI each concurrent sync view holds one, so the maximum caps concurrent requests per process.
 
 The default cache is Django's `DatabaseCache` in the table `django_cache`.
 `migrate` creates it through a post_migrate receiver in `<package>/cache.py`.
@@ -69,6 +72,10 @@ htmx adds interactivity; there is no JavaScript build step and no SPA framework.
 django-htmx serves htmx and provides `request.htmx`.
 Tailwind CSS with daisyUI comes from django-tailwind-cli, which needs no Node.js.
 `base.html` enables `hx-boost` for the whole page.
+
+The project runs on ASGI under granian, in development and production.
+Write views as sync functions unless they wait, such as a server-sent event stream.
+`mise run runserver` is WSGI and cannot stream an async response.
 
 The template builtins include `i18n`, `static` and `heroicons`.
 Templates use them without `{% load %}`.
@@ -120,7 +127,8 @@ Write a failing test before a fix or a feature.
 ## Production
 
 WhiteNoise serves static files with hashed names from the manifest.
-The Docker image runs Granian on port 8000 and migrates on start.
+The Docker image runs `manage.py serve`, granian over ASGI on port 8000, and migrates on start.
+`GRANIAN_*` environment variables configure granian, such as `GRANIAN_WORKERS`.
 The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
 Only the web process migrates, so start the others after it.
 `SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.

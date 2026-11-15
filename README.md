@@ -18,6 +18,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - environs\[django\]
 - heroicons
 - whitenoise
+- [granian](https://github.com/emmett-framework/granian) serving ASGI, in development and in the Docker image
 - PostgreSQL through psycopg 3; `mise run bootstrap` creates the database
 - Django's database cache in an UNLOGGED PostgreSQL table, created by `migrate`
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
@@ -79,10 +80,10 @@ mise run migrate
 # Create database migrations
 mise run makemigrations
 
-# Start runserver, the task worker and the scheduler together; Ctrl-C stops all
+# Start granian (ASGI), Tailwind, the task worker and the scheduler together; Ctrl-C stops all
 mise run debugserver
 
-# Start the development server alone
+# Start the WSGI development server with Tailwind, for breakpoint()
 mise run runserver
 
 # Start the interactive django shell
@@ -117,6 +118,9 @@ Or when run as a [12-Factor application](https://12factor.net).
 | ALLOWED_HOSTS           | []                                                 | settings.py   |
 | CACHE_URL               | "db://django_cache?max_entries=10000"              | settings.py   |
 | CSRF_TRUSTED_ORIGINS    | []                                                 | settings.py   |
+| DATABASE_POOL           | True                                               | settings.py   |
+| DATABASE_POOL_MAX_SIZE  | 10                                                 | settings.py   |
+| DATABASE_POOL_MIN_SIZE  | 1                                                  | settings.py   |
 | DATABASE_URL            | "postgres:///<project>" (local socket)             | settings.py   |
 | DEBUG                   | False                                              | settings.py   |
 | EMAIL_URL               | "console:"                                         | settings.py   |
@@ -125,9 +129,10 @@ Or when run as a [12-Factor application](https://12factor.net).
 | SECRET_KEY              |                                                    | settings.py   |
 | TASKS_BACKEND           | "django_tasks_db.DatabaseBackend"                  | settings.py   |
 | TIME_ZONE               | "UTC"                                              | settings.py   |
-| GRANIAN_WORKERS         | 1                                                  | entrypoint.sh |
-| GRANIAN_RUNTIME_THREADS | 1                                                  | entrypoint.sh |
-| GRANIAN_*               | see <https://github.com/emmett-framework/granian>  | entrypoint.sh |
+| GRANIAN_HOST            | "0.0.0.0" in the image, "127.0.0.1" otherwise      | granian       |
+| GRANIAN_WORKERS         | 1                                                  | granian       |
+| GRANIAN_RUNTIME_THREADS | 1                                                  | granian       |
+| GRANIAN_*               | see <https://github.com/emmett-framework/granian>  | granian       |
 
 ## Docker and docker-compose
 
