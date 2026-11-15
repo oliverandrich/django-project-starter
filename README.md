@@ -19,6 +19,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - heroicons
 - whitenoise
 - PostgreSQL through psycopg 3; `mise run bootstrap` creates the database
+- Django's database cache in an UNLOGGED PostgreSQL table, created by `migrate`
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)
@@ -114,7 +115,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | Environment Variable    | Default                                            | Location      |
 | ----------------------- | -------------------------------------------------- | ------------- |
 | ALLOWED_HOSTS           | []                                                 | settings.py   |
-| CACHE_URL               | "locmem://"                                        | settings.py   |
+| CACHE_URL               | "db://django_cache?max_entries=10000"              | settings.py   |
 | CSRF_TRUSTED_ORIGINS    | []                                                 | settings.py   |
 | DATABASE_URL            | "postgres:///<project>" (local socket)             | settings.py   |
 | DEBUG                   | False                                              | settings.py   |

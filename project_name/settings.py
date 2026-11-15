@@ -200,7 +200,10 @@ vars().update(EMAIL_CONFIG)
 
 # Caches
 # https://docs.djangoproject.com/en/6.1/ref/settings/#caches
-CACHES = {"default": env.dj_cache_url("CACHE_URL", default="locmem://")}
+# Django's DatabaseCache in PostgreSQL. `migrate` creates its UNLOGGED table.
+CACHES = {
+    "default": env.dj_cache_url("CACHE_URL", default="db://django_cache?max_entries=10000"),
+}
 
 # Tasks
 # https://docs.djangoproject.com/en/6.1/topics/tasks/

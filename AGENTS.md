@@ -56,6 +56,12 @@ PostgreSQL is the only supported database, through psycopg 3.
 `mise run manage createdb` creates that database; `mise run bootstrap` calls it.
 Tests need a running PostgreSQL server and the CREATEDB privilege.
 
+The default cache is Django's `DatabaseCache` in the table `django_cache`.
+`migrate` creates it through a post_migrate receiver in `<package>/cache.py`.
+The table is UNLOGGED: writes skip the WAL, and a crash empties it.
+Standbys do not replicate UNLOGGED tables, so read replicas cannot serve the cache.
+It holds up to 10000 entries; `CACHE_URL=db://django_cache?max_entries=N` changes that.
+
 ## Frontend
 
 Pages are rendered on the server.

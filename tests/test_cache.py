@@ -1,0 +1,43 @@
+from importlib import import_module
+from unittest import mock
+
+from django.core.cache import cache
+from django.db import connection
+from django.test import SimpleTestCase, TestCase
+
+from tests.utils import evaluate_settings
+
+cache_module = import_module("{{ project_name }}.cache")
+
+
+class CacheSettingTest(SimpleTestCase):
+    def test_database_cache_by_default(self):
+        default = evaluate_settings()["CACHES"]["default"]
+        self.assertEqual(default["BACKEND"], "django.core.cache.backends.db.DatabaseCache")
+        self.assertEqual(default["LOCATION"], "django_cache")
+        self.assertEqual(default["OPTIONS"], {"MAX_ENTRIES": 10000})
+
+    def test_cache_url_selects_the_cache(self):
+        default = evaluate_settings(CACHE_URL="locmem://")["CACHES"]["default"]
+        self.assertEqual(default["BACKEND"], "django.core.cache.backends.locmem.LocMemCache")
+
+
+class CacheTableTest(TestCase):
+    def test_migrate_creates_an_unlogged_table(self):
+        # The test database is built by migrate, which runs the post_migrate handler.
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT relpersistence FROM pg_class WHERE relname = 'django_cache'")
+            self.assertEqual(cursor.fetchone(), ("u",))
+
+    def test_cache_stores_entries_in_the_table(self):
+        cache.set("greeting", "hello")
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM django_cache WHERE cache_key LIKE %s", ["%greeting"])
+            self.assertIsNotNone(cursor.fetchone())
+        self.assertEqual(cache.get("greeting"), "hello")
+
+    def test_flush_leaves_the_cache_table_alone(self):
+        # flush sends post_migrate without a plan; only migrate passes one.
+        with mock.patch.object(cache_module, "call_command") as call_command:
+            cache_module.create_cache_tables(using="default")
+        call_command.assert_not_called()
