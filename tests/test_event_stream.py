@@ -7,7 +7,8 @@ from unittest import mock
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth.models import AnonymousUser, User
-from django.db import connection
+from django.contrib.sessions.backends.db import SessionStore
+from django.db import connection, transaction
 from django.http import StreamingHttpResponse
 from django.test import AsyncClient, RequestFactory, SimpleTestCase, TransactionTestCase
 
@@ -32,6 +33,15 @@ class CanSubscribeTest(SimpleTestCase):
 
     def test_other_topics_are_closed_until_the_project_opens_them(self):
         self.assertFalse(events.can_subscribe(self.request(User(pk=7)), "room:1"))
+
+
+def terminate_listener():
+    """Ends every hub's LISTEN session, as a database restart would."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query LIKE %s",
+            ["LISTEN %"],
+        )
 
 
 def stops_the_hub(test):
@@ -126,6 +136,7 @@ class StreamTest(TransactionTestCase):
     async def test_an_unread_stream_leaves_no_subscription(self):
         request = RequestFactory().get("/events/?topic=public:news")
         request.user = AnonymousUser()
+        request.session = SessionStore()
         response = await events.stream(request)
         await response.streaming_content.aclose()
         self.assertEqual(events.get_hub().queues, {})
@@ -150,8 +161,119 @@ class StreamTest(TransactionTestCase):
             cursor.execute("SELECT pg_notify(%s, %s)", [events.CHANNEL, payload])
 
     def terminate_listener(self):
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query = %s",
-                [f'LISTEN "{events.CHANNEL}"'],
-            )
+        terminate_listener()
+
+
+class CloseStreamsTest(TransactionTestCase):
+    async def logged_in_client(self, user) -> AsyncClient:
+        client = AsyncClient()
+        await client.aforce_login(user)
+        return client
+
+    async def open_stream(self, client: AsyncClient, topic: str):
+        response = await client.get(f"/events/?topic={topic}")
+        assert isinstance(response, StreamingHttpResponse)
+        content = response.streaming_content
+        assert isinstance(content, AsyncIterable)
+        stream = aiter(content)
+        ready = await asyncio.wait_for(anext(stream), 5)
+        self.assertTrue(ready.startswith(b":"), ready)
+        return stream
+
+    async def next_message(self, stream, timeout: float = 5) -> bytes:
+        while True:
+            chunk = await asyncio.wait_for(anext(stream), timeout)
+            if not chunk.startswith(b":"):
+                return chunk
+
+    async def assert_closed(self, stream):
+        self.assertEqual(await self.next_message(stream), b"event: closed\ndata: \n\n")
+        with self.assertRaises(StopAsyncIteration):
+            await self.next_message(stream)
+
+    @stops_the_hub
+    async def test_logout_closes_the_streams_of_that_session_only(self):
+        user = await User.objects.acreate_user("ada")
+        first, second = await self.logged_in_client(user), await self.logged_in_client(user)
+        first_stream = await self.open_stream(first, f"user:{user.pk}")
+        second_stream = await self.open_stream(second, f"user:{user.pk}")
+        await first.alogout()
+        await self.assert_closed(first_stream)
+        await sync_to_async(events.broadcast)(f"user:{user.pk}", "<p>still here</p>")
+        self.assertIn(b"still here", await self.next_message(second_stream))
+
+    @stops_the_hub
+    async def test_closing_by_user_closes_every_session(self):
+        user = await User.objects.acreate_user("ada")
+        streams = [
+            await self.open_stream(await self.logged_in_client(user), f"user:{user.pk}")
+            for _ in range(2)
+        ]
+        await sync_to_async(events.close_streams)(user=user)
+        for stream in streams:
+            await self.assert_closed(stream)
+
+    @stops_the_hub
+    async def test_a_rolled_back_close_leaves_the_stream_open(self):
+        user = await User.objects.acreate_user("ada")
+        stream = await self.open_stream(await self.logged_in_client(user), f"user:{user.pk}")
+
+        def close_then_roll_back():
+            with transaction.atomic():
+                events.close_streams(user=user)
+                transaction.set_rollback(True)
+
+        await sync_to_async(close_then_roll_back)()
+        await sync_to_async(events.broadcast)(f"user:{user.pk}", "<p>open</p>")
+        self.assertIn(b"open", await self.next_message(stream))
+
+    @stops_the_hub
+    async def test_a_close_sent_while_the_listener_reconnects_arrives(self):
+        user = await User.objects.acreate_user("ada")
+        stream = await self.open_stream(await self.logged_in_client(user), f"user:{user.pk}")
+        with self.assertLogs(events.logger, "WARNING"):
+            await sync_to_async(terminate_listener)()
+            await sync_to_async(events.close_streams)(user=user)
+            await self.assert_closed(stream)
+
+    @stops_the_hub
+    async def test_a_close_before_the_stream_starts_reaches_it(self):
+        # The view authorises; the stream subscribes later, when its first chunk is read.
+        user = await User.objects.acreate_user("ada")
+        client = await self.logged_in_client(user)
+        response = await client.get(f"/events/?topic=user:{user.pk}")
+        assert isinstance(response, StreamingHttpResponse)
+        content = response.streaming_content
+        assert isinstance(content, AsyncIterable)
+        await sync_to_async(events.close_streams)(user=user)
+        stream = aiter(content)
+        await self.assert_closed(stream)
+
+    async def test_a_closed_stream_stays_closed_when_its_queue_overflows(self):
+        hub = events.Hub()
+        owner = events.Owner.of(user="7", session=None)
+        with mock.patch.object(events, "QUEUE_SIZE", 2):
+            queue = hub.subscribe(["public:news"], owner)
+        try:
+            hub._close("user:7")
+            for event_id in range(1, 5):
+                hub._deliver(events.Message(event_id, "public:news", "", "<p>x</p>"))
+            self.assertEqual([queue.get_nowait() for _ in range(queue.qsize())], [events.REVOKED])
+        finally:
+            await hub.stop()
+
+    async def test_a_process_without_targets_skips_loading_closes(self):
+        hub = events.Hub()
+        with mock.patch.object(hub, "_fetch") as fetch:
+            await hub._receive(f"5:{events.CLOSE_TOPIC}")
+        fetch.assert_not_called()
+        self.assertEqual(hub.last_id, 5)
+
+
+class CloseStreamsArgumentsTest(SimpleTestCase):
+    def test_needs_a_user_or_a_session(self):
+        with self.assertRaises(ValueError):
+            events.close_streams()
+
+    def test_a_session_without_a_key_has_no_streams(self):
+        events.close_streams(session=SessionStore())

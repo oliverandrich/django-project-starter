@@ -18,6 +18,7 @@ from typing import Any
 import psycopg
 from asgiref.sync import sync_to_async
 from django.db import connection, transaction
+from django.db.models import Max
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, StreamingHttpResponse
 from django.http.response import HttpResponseBase
 from psycopg import sql
@@ -28,6 +29,9 @@ StreamEvent = import_module("{{ project_name }}.models").StreamEvent
 logger = logging.getLogger(__name__)
 
 CHANNEL = "sse"
+# close_streams() stores its targets as events on this topic, so they replay like any event.
+# can_subscribe() refuses it, since its kind is neither "public" nor "user".
+CLOSE_TOPIC = "_close"
 KEEPALIVE_SECONDS = 15
 QUEUE_SIZE = 1000
 # A longer replay ends the stream after one batch; htmx reconnects and asks for the next.
@@ -56,6 +60,29 @@ def _publish(topic: str, html: str, event: str) -> None:
         cursor.execute("SELECT pg_advisory_xact_lock(%s)", [PUBLISH_LOCK_KEY])
         stored = StreamEvent.objects.create(topic=topic, event=event, html=html)
         _notify(cursor, stored.id, topic)
+
+
+def close_streams(*, user=None, session=None) -> None:
+    """End the open streams of `user` or of one session, once the current transaction commits.
+
+    Each stream receives an event named "closed" and ends. htmx reconnects, and can_subscribe()
+    checks the topics again, so call this after taking away a user's access to a topic.
+    """
+    if user is None and session is None:
+        raise ValueError("close_streams() needs a user or a session.")
+    # A session without a key was never saved, so no stream was opened with it.
+    targets = Owner.of(
+        user=str(user.pk) if user is not None else None,
+        session=session.session_key if session is not None else None,
+    ).targets
+    for target in sorted(targets):
+        broadcast(CLOSE_TOPIC, target)
+
+
+def close_session_streams(sender, request, user, **kwargs) -> None:
+    """A user_logged_out receiver: other tabs of the session lose the user's topics."""
+    if request is not None:
+        close_streams(session=request.session)
 
 
 def _notify(cursor, event_id: int, topic: str) -> None:
@@ -115,7 +142,26 @@ class Message:
 
 # Put into a stream's queue when its client falls too far behind. The stream ends, and htmx
 # reconnects with Last-Event-ID, so the replay delivers what the queue dropped.
-CLOSE = object()
+OVERFLOW = object()
+# Put into a stream's queue by Hub._close(). The stream sends CLOSED and ends.
+REVOKED = object()
+CLOSED = "event: closed\ndata: \n\n"
+
+
+@dataclass(frozen=True)
+class Owner:
+    """The targets close_streams() matches against a stream."""
+
+    targets: frozenset[str]
+
+    @classmethod
+    def of(cls, *, user: str | None, session: str | None) -> Owner:
+        targets = set()
+        if user is not None:
+            targets.add(f"user:{user}")
+        if session is not None:
+            targets.add(f"session:{session}")
+        return cls(frozenset(targets))
 
 
 def connect_params() -> dict[str, Any]:
@@ -137,27 +183,30 @@ class Hub:
 
     def __init__(self) -> None:
         self.queues: dict[str, set[asyncio.Queue]] = {}
+        self.by_target: dict[str, set[asyncio.Queue]] = {}
+        # Closed streams get no further events, so nothing can push their REVOKED out.
+        self.revoked: set[asyncio.Queue] = set()
         self.ready = asyncio.Event()
         self.last_id: int | None = None
         self.task: asyncio.Task | None = None
         self.fetch_connection: psycopg.AsyncConnection | None = None
         self.fetch_lock = asyncio.Lock()
 
-    def subscribe(self, topics: list[str]) -> asyncio.Queue:
+    def subscribe(self, topics: list[str], owner: Owner) -> asyncio.Queue:
         """A queue that receives the events of `topics`. Starts the listener on first use."""
         queue: asyncio.Queue = asyncio.Queue(QUEUE_SIZE)
+        for target in owner.targets:
+            self.by_target.setdefault(target, set()).add(queue)
         for topic in topics:
             self.queues.setdefault(topic, set()).add(queue)
         if self.task is None or self.task.done():
             self.task = asyncio.get_running_loop().create_task(self._listen())
         return queue
 
-    def unsubscribe(self, topics: list[str], queue: asyncio.Queue) -> None:
-        for topic in topics:
-            queues = self.queues.get(topic, set())
-            queues.discard(queue)
-            if not queues:
-                self.queues.pop(topic, None)
+    def unsubscribe(self, topics: list[str], owner: Owner, queue: asyncio.Queue) -> None:
+        self.revoked.discard(queue)
+        _discard(self.by_target, owner.targets, queue)
+        _discard(self.queues, topics, queue)
 
     async def replay(self, topics: list[str], after_id: int) -> list[Message]:
         """Up to REPLAY_BATCH events of `topics` after `after_id`, oldest first."""
@@ -207,7 +256,8 @@ class Hub:
             logger.warning("Ignored a NOTIFY on %s with the payload %r.", CHANNEL, payload)
             return
         event_id, topic = parsed
-        if topic not in self.queues:
+        readers = self.by_target if topic == CLOSE_TOPIC else self.queues.get(topic)
+        if not readers:
             # No stream here reads the topic; ids still advance for the catch-up after a reconnect.
             self.last_id = max(self.last_id or 0, event_id)
             return
@@ -222,24 +272,55 @@ class Hub:
             self.last_id = rows[0][0]
             return
         while True:
-            messages = await self.replay(list(self.queues), self.last_id)
+            messages = await self.replay([*self.queues, CLOSE_TOPIC], self.last_id)
             for message in messages:
                 self._deliver(message)
             if len(messages) < REPLAY_BATCH:
                 return
+
+    def _close(self, target: str) -> None:
+        for queue in self.by_target.get(target, set()) - self.revoked:
+            self.revoked.add(queue)
+            _replace_contents(queue, REVOKED)
 
     def _deliver(self, message: Message) -> None:
         # Ids become visible in order, so an id at or below last_id was delivered before.
         if self.last_id is not None and message.id <= self.last_id:
             return
         self.last_id = message.id
-        for queue in self.queues.get(message.topic, set()):
+        if message.topic == CLOSE_TOPIC:
+            self._close(message.html)
+            return
+        for queue in self.queues.get(message.topic, set()) - self.revoked:
             try:
                 queue.put_nowait(message)
             except asyncio.QueueFull:
-                while not queue.empty():
-                    queue.get_nowait()
-                queue.put_nowait(CLOSE)
+                _replace_contents(queue, OVERFLOW)
+
+
+def _discard(index: dict[str, set[asyncio.Queue]], keys, queue: asyncio.Queue) -> None:
+    for key in keys:
+        queues = index.get(key, set())
+        queues.discard(queue)
+        if not queues:
+            index.pop(key, None)
+
+
+def _replace_contents(queue: asyncio.Queue, sentinel: object) -> None:
+    while not queue.empty():
+        queue.get_nowait()
+    queue.put_nowait(sentinel)
+
+
+async def _closed_since(hub: Hub, owner: Owner, after_id: int) -> bool:
+    """Whether close_streams() named the owner between authorisation and subscription."""
+    while True:
+        closes = await hub.replay([CLOSE_TOPIC], after_id)
+        if any(close.html in owner.targets for close in closes):
+            return True
+        if len(closes) < REPLAY_BATCH:
+            return False
+        after_id = closes[-1].id
 
 
 def _table() -> sql.Identifier:
@@ -268,32 +349,57 @@ async def stream(request) -> HttpResponseBase:
     topics = request.GET.getlist("topic")
     if not topics:
         return HttpResponseBadRequest("Name at least one topic.")
-    if not await sync_to_async(_may_subscribe)(request, topics):
+    hub = get_hub()
+    # Read before the check: a close committed after it has a larger id and is caught later.
+    known = hub.last_id if hub.ready.is_set() else None
+    authorized = await sync_to_async(_authorize)(request, topics, known)
+    if authorized is None:
         return HttpResponseForbidden()
+    owner, authorized_at = authorized
     last_event_id = parse_last_event_id(request.headers.get("Last-Event-ID", ""))
-    response = StreamingHttpResponse(
-        _messages(get_hub(), topics, last_event_id), content_type="text/event-stream"
-    )
+    messages = _messages(hub, topics, owner, authorized_at, last_event_id)
+    response = StreamingHttpResponse(messages, content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
     return response
 
 
-def _may_subscribe(request, topics: list[str]) -> bool:
+def _authorize(request, topics: list[str], known: int | None) -> tuple[Owner, int] | None:
+    """The stream's owner and the newest event id before the check, if every topic is allowed.
+
+    `known` is the hub's newest id. A hub that is not listening yet needs one query instead.
+    """
     try:
-        return all(can_subscribe(request, topic) for topic in topics)
+        authorized_at = known
+        if authorized_at is None and request.user.is_authenticated:
+            authorized_at = StreamEvent.objects.aggregate(newest=Max("id"))["newest"] or 0
+        if not all(can_subscribe(request, topic) for topic in topics):
+            return None
+        # Anonymous streams have no targets: close_streams() needs a user or a session login.
+        if request.user.is_authenticated:
+            owner = Owner.of(user=str(request.user.pk), session=request.session.session_key)
+        else:
+            owner = Owner(frozenset())
+        return owner, authorized_at or 0
     finally:
         # Under ASGI this thread keeps its connection until the request ends, which for a
         # stream is when the client leaves. Closing returns it to the pool now.
         connection.close()
 
 
-async def _messages(hub: Hub, topics: list[str], last_event_id: int | None):
+async def _messages(
+    hub: Hub, topics: list[str], owner: Owner, authorized_at: int, last_event_id: int | None
+):
     # Subscribed here, not in the view: a generator that never starts skips its finally.
-    queue = hub.subscribe(topics)
+    queue = hub.subscribe(topics, owner)
     sent = last_event_id or 0
     try:
         await hub.ready.wait()
         yield ": connected\n\n"
+        # A close among the events since authorisation reached the hub before this queue existed.
+        missed = (hub.last_id or 0) > authorized_at
+        if owner.targets and missed and await _closed_since(hub, owner, authorized_at):
+            yield CLOSED
+            return
         if last_event_id is not None:
             replayed = await hub.replay(topics, sent)
             for message in replayed:
@@ -307,7 +413,10 @@ async def _messages(hub: Hub, topics: list[str], last_event_id: int | None):
             except TimeoutError:
                 yield ": keepalive\n\n"
                 continue
-            if message is CLOSE:
+            if message is OVERFLOW:
+                return
+            if message is REVOKED:
+                yield CLOSED
                 return
             # The replay may already have sent what the queue collected meanwhile.
             if message.id <= sent:
@@ -315,4 +424,4 @@ async def _messages(hub: Hub, topics: list[str], last_event_id: int | None):
             sent = message.id
             yield format_event(message)
     finally:
-        hub.unsubscribe(topics, queue)
+        hub.unsubscribe(topics, owner, queue)

@@ -146,7 +146,16 @@ broadcast(f"room:{room.pk}", html)
 `can_subscribe()` in `events.py` decides who may read a topic.
 `public:…` is open to everyone, `user:<id>` to that user; every other kind stays closed.
 Add a case for each new kind of topic, such as chat rooms with a membership check.
-It runs once, when the stream opens; a user who loses access keeps the stream until it reconnects.
+It runs when a stream opens, so taking access away needs `close_streams()`.
+`close_streams(user=...)` or `close_streams(session=request.session)` ends the matching streams.
+It reaches every process after the transaction commits, also one whose listener was reconnecting.
+Each stream receives an event named `closed`.
+htmx then reconnects, and `can_subscribe()` checks the topics again.
+A forbidden reconnect gets a 403, and htmx retries with a backoff of up to 60 seconds.
+Add `hx-sse:close="closed"` to a stream element that should stop instead.
+Logging out closes the streams of that session, so other tabs lose the user's topics.
+Call `close_streams(user=...)` after a password change, so other sessions lose their streams.
+Logging in as another user without logging out first closes nothing: Django drops the old session key without a signal.
 
 Every event is stored in `StreamEvent`. A reconnecting browser sends `Last-Event-ID` and gets the events it missed.
 `EVENTS_RETENTION_HOURS` (default 24) sets how far back that reaches; `prune_stream_events` deletes older events hourly.
