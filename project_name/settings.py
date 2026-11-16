@@ -61,6 +61,7 @@ INSTALLED_APPS += [
     "django_extensions",
     "django_tasks_db",
     "crontask",
+    "django_pg_sse",
 ]
 
 # Our apps
@@ -223,9 +224,14 @@ TASKS = {
     },
 }
 
-# Server-sent events, see events.py
-# A reconnecting stream replays missed events from this window, after which they are pruned.
-EVENTS_RETENTION_HOURS = env.int("EVENTS_RETENTION_HOURS", default=24)
+# Server-sent events through django-pg-sse
+# https://github.com/oliverandrich/django-pg-sse
+PG_SSE = {
+    # events.py decides who may read a topic.
+    "CAN_SUBSCRIBE": "{{ project_name }}.events.can_subscribe",
+    # A reconnecting stream replays missed events from this window, after which they are pruned.
+    "RETENTION_HOURS": env.int("EVENTS_RETENTION_HOURS", default=24),
+}
 
 # django-tailwind-cli settings
 # https://django-tailwind-cli.andrich.me/settings/

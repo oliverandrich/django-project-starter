@@ -29,9 +29,10 @@ RUN apt-get update \
 # Stage 2: Python environment
 FROM linux-base AS python-base
 
-# Install debian dependencies
+# Install debian dependencies. uv needs git for the django-pg-sse git dependency;
+# the final image is built from linux-base and does not carry it.
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y build-essential gettext \
+    && apt-get install --no-install-recommends -y build-essential gettext git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv, pinned so a rebuild does not change the toolchain

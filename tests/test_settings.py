@@ -41,9 +41,8 @@ class DatabaseSettingTest(SimpleTestCase):
 
 class EventsSettingTest(SimpleTestCase):
     def test_retention_defaults_to_a_day(self):
-        self.assertEqual(evaluate_settings()["EVENTS_RETENTION_HOURS"], 24)
+        self.assertEqual(evaluate_settings()["PG_SSE"]["RETENTION_HOURS"], 24)
 
     def test_retention_comes_from_the_environment(self):
-        self.assertEqual(
-            evaluate_settings(EVENTS_RETENTION_HOURS="72")["EVENTS_RETENTION_HOURS"], 72
-        )
+        pg_sse = evaluate_settings(EVENTS_RETENTION_HOURS="72")["PG_SSE"]
+        self.assertEqual(pg_sse["RETENTION_HOURS"], 72)

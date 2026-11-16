@@ -2,10 +2,12 @@ from datetime import timedelta
 from importlib import import_module
 
 from crontask import scheduler
+from django.conf import settings
 from django.tasks import TaskResultStatus, task_backends
 from django.tasks.backends.immediate import ImmediateBackend
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
+from django_pg_sse.models import StreamEvent
 from django_tasks_db.models import DBTaskResult
 from model_bakery import baker
 
@@ -63,11 +65,10 @@ class PruneTaskResultsTest(TestCase):
         self.assertIn(prune_task_results.name, names)
 
 
-StreamEvent = import_module("{{ project_name }}.models").StreamEvent
 prune_stream_events = import_module("{{ project_name }}.tasks").prune_stream_events
 
 
-@override_settings(EVENTS_RETENTION_HOURS=24)
+@override_settings(PG_SSE={**settings.PG_SSE, "RETENTION_HOURS": 24})
 class PruneStreamEventsTest(TestCase):
     def make_event(self, *, age: timedelta):
         event = baker.make(StreamEvent, topic="public:news")

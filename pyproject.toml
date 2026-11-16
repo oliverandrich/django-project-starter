@@ -17,6 +17,9 @@ dependencies = [
   "granian[pname]>=2.8.8",
   "django-tasks-db>=0.13.0",
   "django-crontask>=2.2.0",
+  # Pinned to a commit until django-pg-sse is on PyPI. Its version comes from git tags, so uv
+  # clones it; the Dockerfile installs git for that.
+  "django-pg-sse @ git+https://github.com/oliverandrich/django-pg-sse@5cc170f6e528902f44babb2be142e04a8d5e6da4",
 ]
 
 [dependency-groups]

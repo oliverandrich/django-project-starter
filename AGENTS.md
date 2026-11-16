@@ -127,41 +127,46 @@ A transaction-pooling PgBouncer breaks the lock.
 
 ## Live updates
 
-`<package>/events.py` pushes HTML to browsers as server-sent events over PostgreSQL LISTEN/NOTIFY.
-`broadcast(topic, html)` sends after the current transaction commits; a rollback sends nothing.
-Render the html from a template partial, such as `render_to_string("chat.html#message", context)`.
-A page opens one stream for all its topics: `hx-sse:connect="{% url 'events' %}?topic=a&topic=b"`.
+[django-pg-sse](https://github.com/oliverandrich/django-pg-sse) pushes server-sent events over PostgreSQL LISTEN/NOTIFY.
+Its README documents the API.
+This section covers the project's wiring.
+
+`broadcast(topic, data)` sends after the current transaction commits; a rollback sends nothing.
+Render HTML from a template partial, such as `render_to_string("chat.html#message", context)`.
+A page opens one stream for all its topics: `hx-sse:connect="{% url 'pg_sse:stream' %}?topic=a&topic=b"`.
 htmx swaps each message; elements with `hx-swap-oob` or `<hx-partial>` update the page anywhere.
 
 ```html
 <ul id="messages"></ul>
-<div hx-sse:connect="{% url 'events' %}?topic=room:{{ room.pk }}"></div>
+<div hx-sse:connect="{% url 'pg_sse:stream' %}?topic=room:{{ room.pk }}"></div>
 ```
 
 ```python
+from django_pg_sse import broadcast
+
 html = '<ul id="messages" hx-swap-oob="beforeend"><li id="message-7">Hi</li></ul>'
 broadcast(f"room:{room.pk}", html)
 ```
 
-`can_subscribe()` in `events.py` decides who may read a topic.
+`broadcast_json(topic, value, event="name")` sends JSON in a named event for client code.
+htmx dispatches it as a DOM event on the stream element; `event.detail.data` holds the JSON.
+
+`can_subscribe()` in `<package>/events.py` decides who may read a topic.
 `public:…` is open to everyone, `user:<id>` to that user; every other kind stays closed.
 Add a case for each new kind of topic, such as chat rooms with a membership check.
-It runs when a stream opens, so taking access away needs `close_streams()`.
-`close_streams(user=...)` or `close_streams(session=request.session)` ends the matching streams.
-It reaches every process after the transaction commits, also one whose listener was reconnecting.
-Each stream receives an event named `closed`.
-htmx then reconnects, and `can_subscribe()` checks the topics again.
-A forbidden reconnect gets a 403, and htmx retries with a backoff of up to 60 seconds.
+It runs when a stream opens, so taking access away needs `close_streams(user=...)` or `close_streams(session=...)`.
+Each closed stream receives an event named `closed`, and htmx reconnects through the check again.
 Add `hx-sse:close="closed"` to a stream element that should stop instead.
-Logging out closes the streams of that session, so other tabs lose the user's topics.
+Logging out closes the streams of that session.
 Call `close_streams(user=...)` after a password change, so other sessions lose their streams.
 Logging in as another user without logging out first closes nothing: Django drops the old session key without a signal.
 
-Every event is stored in `StreamEvent`. A reconnecting browser sends `Last-Event-ID` and gets the events it missed.
-`EVENTS_RETENTION_HOURS` (default 24) sets how far back that reaches; `prune_stream_events` deletes older events hourly.
+Every event is stored, so a reconnecting browser receives the events it missed.
+`EVENTS_RETENTION_HOURS` (default 24) sets how far back that reaches.
+The `@cron` task `prune_stream_events` in `<package>/tasks.py` deletes older events hourly.
 Give list items stable ids, so an event delivered twice replaces its element instead of adding one.
-Each granian worker holds two connections for the streams, outside the pool, however many streams are open.
-`broadcast()` serialises its writes through an advisory lock, so event ids become visible in order.
+Each granian worker holds up to 2 + `PG_SSE["STREAM_CONNECTIONS"]` (default 4) connections for the streams.
+They come on top of Django's pool.
 
 ## Tests
 
