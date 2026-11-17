@@ -384,3 +384,23 @@ def test_update_htmx_rejects_anything_but_a_4x_release(generate):
         assert result.returncode != 0
         assert "4.x" in result.stderr
     assert (project / "assets/vendor/htmx/VERSION").read_text().strip().startswith("4.")
+
+
+def test_ruff_skips_migrations_named_on_the_command_line(generate):
+    """pre-commit passes file names, which bypass ruff's `exclude` unless `force-exclude` is set."""
+    project = generate("acme_shop")
+    rev = re.search(
+        r"ruff-pre-commit\n\s+(?:#.*\n\s+)*rev: v?(\S+)",
+        (project / ".pre-commit-config.yaml").read_text(),
+    )
+    assert rev, "no ruff-pre-commit revision in .pre-commit-config.yaml"
+    migration = project / "acme_shop" / "migrations" / "0001_initial.py"
+    migration.write_text(f"x = {'1 + ' * 40}1\n")
+    for command in (["check"], ["format", "--check"]):
+        result = subprocess.run(
+            ["uvx", f"ruff@{rev[1]}", *command, str(migration.relative_to(project))],
+            cwd=project,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr

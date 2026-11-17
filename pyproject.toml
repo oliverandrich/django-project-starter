@@ -62,6 +62,8 @@ omit = ["*/migrations/*", "*/tests/*", "*/conftest.py"]
 
 [tool.ruff]
 line-length = 100
+# pre-commit passes file names, which bypass `exclude` unless this is set.
+force-exclude = true
 
 [tool.ruff.format]
 exclude = ["**/migrations/*"]
@@ -117,7 +119,7 @@ exclude = [
   "_build",
   "build",
   "dist",
-  "migrations",
+  "**/migrations/*",
   "node_modules",
   "static",
 ]
