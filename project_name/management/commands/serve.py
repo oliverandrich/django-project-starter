@@ -46,7 +46,9 @@ def _static_files_options() -> list[str]:
 
 
 @click.command()
-@click.option("--reload", is_flag=True, help="Restart on Python changes in the project package.")
+@click.option(
+    "--reload", is_flag=True, help="Restart on changes in the project package, templates included."
+)
 def main(reload):
     base_dir = Path(settings.BASE_DIR)
     argv = [
@@ -69,9 +71,9 @@ def main(reload):
     kill_timeout = RELOAD_KILL_TIMEOUT if reload else KILL_TIMEOUT
     os.environ.setdefault("GRANIAN_WORKERS_KILL_TIMEOUT", kill_timeout)
     if reload:
+        # Templates and translations restart the worker too: only runserver clears Django's
+        # template cache, and browser-reload refreshes the page after a restart.
         argv += ["--reload", "--reload-paths", str(base_dir / PACKAGE)]
-        # DEBUG reloads templates without a restart, and browser-reload refreshes the page.
-        argv += ["--reload-ignore-dirs", "templates", "--reload-ignore-dirs", "locale"]
     # execv replaces the process, so unflushed output would be lost.
     sys.stdout.flush()
     sys.stderr.flush()

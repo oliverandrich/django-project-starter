@@ -38,15 +38,15 @@ class ServeCommandTest(SimpleTestCase):
         call_command("serve")
         self.assertEqual(self.option(self.argv(), "--working-dir"), [str(settings.BASE_DIR)])
 
-    def test_reload_watches_python_code_in_the_project_package(self):
+    def test_reload_watches_the_whole_project_package(self):
         call_command("serve", "--reload")
         argv = self.argv()
         self.assertIn("--reload", argv)
         package_dir = str(Path(settings.BASE_DIR) / PACKAGE)
         self.assertEqual(self.option(argv, "--reload-paths"), [package_dir])
-        # DEBUG reloads templates without a restart; browser-reload refreshes the page.
-        ignored = self.option(argv, "--reload-ignore-dirs")
-        self.assertEqual(sorted(ignored), ["locale", "templates"])
+        # Templates and translations restart the worker too: only runserver clears Django's
+        # template cache, and browser-reload refreshes the page after a restart.
+        self.assertEqual(self.option(argv, "--reload-ignore-dirs"), [])
 
     def test_granian_serves_static_files_outside_debug(self):
         static_root = self.enterContext(tempfile.TemporaryDirectory())
