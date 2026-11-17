@@ -19,6 +19,11 @@ PACKAGE = __name__.split(".", 1)[0]
 # One year. Every collected file carries its content hash, see storage.py.
 STATIC_EXPIRES = 365 * 24 * 60 * 60
 
+# Seconds granian waits for a worker to stop before it kills it. granian waits without limit by
+# default, and a server-sent event stream stays open. 5 is below Docker's 10-second stop timeout.
+KILL_TIMEOUT = "5"
+RELOAD_KILL_TIMEOUT = "1"
+
 
 # Plain djclick, not management.base: the process becomes granian, so a logfile stays empty.
 def _static_files_options() -> list[str]:
@@ -60,6 +65,9 @@ def main(reload):
     ]
     if not settings.DEBUG:
         argv += _static_files_options()
+    # The environment, not an option: a granian option would override GRANIAN_WORKERS_KILL_TIMEOUT.
+    kill_timeout = RELOAD_KILL_TIMEOUT if reload else KILL_TIMEOUT
+    os.environ.setdefault("GRANIAN_WORKERS_KILL_TIMEOUT", kill_timeout)
     if reload:
         argv += ["--reload", "--reload-paths", str(base_dir / PACKAGE)]
         # DEBUG reloads templates without a restart, and browser-reload refreshes the page.

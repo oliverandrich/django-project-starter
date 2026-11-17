@@ -188,6 +188,9 @@ The storage is `<package>/storage.py`.
 Reference static files only through `{% static %}`; a hard-coded `/static/...` path gets a 404.
 In `DEBUG`, Django serves static files from the app directories without `collectstatic`.
 `GRANIAN_*` environment variables configure granian, such as `GRANIAN_WORKERS`.
+granian waits for open responses when it stops, and a server-sent event stream stays open.
+`manage.py serve` therefore kills a worker that has not stopped after 5 seconds, or 1 with `--reload`.
+`GRANIAN_WORKERS_KILL_TIMEOUT` overrides that.
 The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
 Only the web process migrates, so start the others after it.
 `SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.

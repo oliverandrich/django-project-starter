@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 from importlib import import_module
@@ -74,3 +75,34 @@ class ServeCommandTest(SimpleTestCase):
         # Django serves the app directories through the finders, without collectstatic.
         call_command("serve")
         self.assertNotIn("--static-path-mount", self.argv())
+
+
+class KillTimeoutTest(SimpleTestCase):
+    """granian waits without limit for open responses, and a server-sent event stream stays open."""
+
+    def setUp(self):
+        self.environ = self.enterContext(mock.patch.dict(serve.os.environ))
+        self.environ.pop("GRANIAN_WORKERS_KILL_TIMEOUT", None)
+        self.execv = self.enterContext(mock.patch.object(serve.os, "execv"))
+
+    def kill_timeout(self, *args: str) -> str | None:
+        seen = {}
+        self.execv.side_effect = lambda *_: seen.update(os.environ)
+        call_command("serve", *args)
+        return seen.get("GRANIAN_WORKERS_KILL_TIMEOUT")
+
+    def test_serving_kills_stuck_workers_before_docker_does(self):
+        # Docker sends SIGKILL 10 seconds after SIGTERM by default.
+        self.assertEqual(self.kill_timeout(), "5")
+
+    def test_reloading_kills_stuck_workers_at_once(self):
+        self.assertEqual(self.kill_timeout("--reload"), "1")
+
+    def test_the_environment_overrides_the_default(self):
+        self.environ["GRANIAN_WORKERS_KILL_TIMEOUT"] = "30"
+        self.assertEqual(self.kill_timeout(), "30")
+
+    def test_no_option_overrides_the_environment(self):
+        # A command-line option takes precedence over granian's environment variable.
+        call_command("serve")
+        self.assertNotIn("--workers-kill-timeout", self.execv.call_args.args[1])

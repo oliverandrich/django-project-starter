@@ -113,27 +113,28 @@ The scheduler does not reload on code changes. Restart `debugserver` after chang
 
 Or when run as a [12-Factor application](https://12factor.net).
 
-| Environment Variable    | Default                                            | Location      |
-| ----------------------- | -------------------------------------------------- | ------------- |
-| ALLOWED_HOSTS           | []                                                 | settings.py   |
-| CACHE_URL               | "db://django_cache?max_entries=10000"              | settings.py   |
-| CSRF_TRUSTED_ORIGINS    | []                                                 | settings.py   |
-| DATABASE_POOL           | True                                               | settings.py   |
-| DATABASE_POOL_MAX_SIZE  | 10                                                 | settings.py   |
-| DATABASE_POOL_MIN_SIZE  | 1                                                  | settings.py   |
-| DATABASE_URL            | "postgres:///<project>" (local socket)             | settings.py   |
-| DEBUG                   | False                                              | settings.py   |
-| EMAIL_URL               | "console:"                                         | settings.py   |
-| EVENTS_RETENTION_HOURS  | 24                                                 | settings.py   |
-| INTERNAL_IPS            | []                                                 | settings.py   |
-| LANGUAGE_CODE           | "en"                                               | settings.py   |
-| SECRET_KEY              |                                                    | settings.py   |
-| TASKS_BACKEND           | "django_tasks_db.DatabaseBackend"                  | settings.py   |
-| TIME_ZONE               | "UTC"                                              | settings.py   |
-| GRANIAN_HOST            | "0.0.0.0" in the image, "127.0.0.1" otherwise      | granian       |
-| GRANIAN_WORKERS         | 1                                                  | granian       |
-| GRANIAN_RUNTIME_THREADS | 1                                                  | granian       |
-| GRANIAN_*               | see <https://github.com/emmett-framework/granian>  | granian       |
+| Environment Variable         | Default                                           | Location        |
+| ---------------------------- | ------------------------------------------------- | --------------- |
+| ALLOWED_HOSTS                | []                                                | settings.py     |
+| CACHE_URL                    | "db://django_cache?max_entries=10000"             | settings.py     |
+| CSRF_TRUSTED_ORIGINS         | []                                                | settings.py     |
+| DATABASE_POOL                | True                                              | settings.py     |
+| DATABASE_POOL_MAX_SIZE       | 10                                                | settings.py     |
+| DATABASE_POOL_MIN_SIZE       | 1                                                 | settings.py     |
+| DATABASE_URL                 | "postgres:///<project>" (local socket)            | settings.py     |
+| DEBUG                        | False                                             | settings.py     |
+| EMAIL_URL                    | "console:"                                        | settings.py     |
+| EVENTS_RETENTION_HOURS       | 24                                                | settings.py     |
+| INTERNAL_IPS                 | []                                                | settings.py     |
+| LANGUAGE_CODE                | "en"                                              | settings.py     |
+| SECRET_KEY                   |                                                   | settings.py     |
+| TASKS_BACKEND                | "django_tasks_db.DatabaseBackend"                 | settings.py     |
+| TIME_ZONE                    | "UTC"                                             | settings.py     |
+| GRANIAN_HOST                 | "0.0.0.0" in the image, "127.0.0.1" otherwise     | granian         |
+| GRANIAN_WORKERS              | 1                                                 | granian         |
+| GRANIAN_RUNTIME_THREADS      | 1                                                 | granian         |
+| GRANIAN_WORKERS_KILL_TIMEOUT | 5, or 1 with `--reload`                           | manage.py serve |
+| GRANIAN_*                    | see <https://github.com/emmett-framework/granian> | granian         |
 
 ## Docker and docker-compose
 
