@@ -133,6 +133,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | GRANIAN_HOST                 | "0.0.0.0" in the image, "127.0.0.1" otherwise     | granian         |
 | GRANIAN_WORKERS              | 1                                                 | granian         |
 | GRANIAN_RUNTIME_THREADS      | 1                                                 | granian         |
+| GRANIAN_BACKPRESSURE         | 8192                                              | manage.py serve |
 | GRANIAN_WORKERS_KILL_TIMEOUT | 5, or 1 with `--reload`                           | manage.py serve |
 | GRANIAN_*                    | see <https://github.com/emmett-framework/granian> | granian         |
 

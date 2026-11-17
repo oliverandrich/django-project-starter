@@ -191,6 +191,9 @@ In `DEBUG`, Django serves static files from the app directories without `collect
 granian waits for open responses when it stops, and a server-sent event stream stays open.
 `manage.py serve` therefore kills a worker that has not stopped after 5 seconds, or 1 with `--reload`.
 `GRANIAN_WORKERS_KILL_TIMEOUT` overrides that.
+Every open stream is one request, and granian handles `GRANIAN_BACKPRESSURE` requests per worker at once.
+granian's default is its backlog of 1024 divided by the workers.
+`manage.py serve` sets 8192 per worker instead; `GRANIAN_BACKPRESSURE` overrides it.
 The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
 Only the web process migrates, so start the others after it.
 `SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.

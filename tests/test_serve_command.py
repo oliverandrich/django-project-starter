@@ -106,3 +106,30 @@ class KillTimeoutTest(SimpleTestCase):
         # A command-line option takes precedence over granian's environment variable.
         call_command("serve")
         self.assertNotIn("--workers-kill-timeout", self.execv.call_args.args[1])
+
+
+class BackpressureTest(SimpleTestCase):
+    """granian serves GRANIAN_BACKPRESSURE requests per worker at once; an open stream is one."""
+
+    def setUp(self):
+        self.environ = self.enterContext(mock.patch.dict(serve.os.environ))
+        self.environ.pop("GRANIAN_BACKPRESSURE", None)
+        self.execv = self.enterContext(mock.patch.object(serve.os, "execv"))
+
+    def backpressure(self) -> str | None:
+        seen = {}
+        self.execv.side_effect = lambda *_: seen.update(os.environ)
+        call_command("serve")
+        return seen.get("GRANIAN_BACKPRESSURE")
+
+    def test_a_worker_holds_more_streams_than_granians_default(self):
+        # granian's default, a backlog of 1024 divided by the workers, would hold few open streams.
+        self.assertEqual(self.backpressure(), "8192")
+
+    def test_the_environment_overrides_the_default(self):
+        self.environ["GRANIAN_BACKPRESSURE"] = "2048"
+        self.assertEqual(self.backpressure(), "2048")
+
+    def test_no_option_overrides_the_environment(self):
+        call_command("serve")
+        self.assertNotIn("--backpressure", self.execv.call_args.args[1])

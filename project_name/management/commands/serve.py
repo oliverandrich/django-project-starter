@@ -24,6 +24,10 @@ STATIC_EXPIRES = 365 * 24 * 60 * 60
 KILL_TIMEOUT = "5"
 RELOAD_KILL_TIMEOUT = "1"
 
+# Requests a worker serves at once. granian's default is its backlog of 1024 divided by the
+# workers, and every open server-sent event stream is one request.
+BACKPRESSURE = "8192"
+
 
 # Plain djclick, not management.base: the process becomes granian, so a logfile stays empty.
 def _static_files_options() -> list[str]:
@@ -70,6 +74,7 @@ def main(reload):
     # The environment, not an option: a granian option would override GRANIAN_WORKERS_KILL_TIMEOUT.
     kill_timeout = RELOAD_KILL_TIMEOUT if reload else KILL_TIMEOUT
     os.environ.setdefault("GRANIAN_WORKERS_KILL_TIMEOUT", kill_timeout)
+    os.environ.setdefault("GRANIAN_BACKPRESSURE", BACKPRESSURE)
     if reload:
         # Templates and translations restart the worker too: only runserver clears Django's
         # template cache, and browser-reload refreshes the page after a restart.
