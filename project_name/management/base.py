@@ -49,6 +49,9 @@ DEFAULT_MAX_LOG_BACKUP_COUNT = 10
 # entry the project configured for a logger of the same name.
 _OWN_HANDLER = "_managed_by_base_py"
 
+# The key of the command's logger in click's ctx.meta, namespaced as click asks.
+LOGGER_KEY = f"{__name__}.logger"
+
 
 def _is_a_tty() -> bool:
     """Whether stdout is a terminal, for every stdout the test runners substitute.
@@ -156,7 +159,8 @@ class _Prepared(click.Command):
         # whatever the test runner was invoked with.
         self.logger = _build_logger(self.name or "command")
         self.logger.setLevel(logging.DEBUG if getattr(ctx, "verbosity", 1) > 1 else logging.INFO)
-        ctx.logger = self.logger  # pyright: ignore[reportAttributeAccessIssue]
+        # click.Context declares no logger attribute; meta holds per-run values for decorators.
+        ctx.meta[LOGGER_KEY] = self.logger
 
         return super().invoke(ctx)
 
@@ -234,7 +238,7 @@ def pass_logger(f: Callable[..., Any]) -> Callable[..., Any]:
     """Pass the command's logger in as a keyword argument, like django-click's `pass_verbosity`."""
 
     def new_func(*args: Any, **kwargs: Any) -> Any:
-        logger = getattr(click.get_current_context(), "logger", None)
+        logger = click.get_current_context().meta.get(LOGGER_KEY)
         if logger is None:
             raise RuntimeError(
                 "@pass_logger needs the @command() from this module; a plain djclick.command "

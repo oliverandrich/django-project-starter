@@ -1,5 +1,8 @@
+import logging
 import tempfile
+from importlib import import_module
 from pathlib import Path
+from unittest import mock
 
 from django.core import checks
 from django.core.management import CommandError, call_command
@@ -67,6 +70,24 @@ class LoggingCommandTest(SimpleTestCase):
         call_command("probe", "World")
         with self.assertRaises(SystemCheckError):
             call_command("probe", "World", skip_checks=False)
+
+    def test_the_logger_lives_in_the_context_meta(self):
+        # click.Context declares no logger attribute; meta is its place for per-run values.
+        seen = {}
+        base = import_module("{{ project_name }}.management.base")
+        prepared = base._Prepared
+        invoke = prepared.invoke
+
+        def spy(self, ctx):
+            result = invoke(self, ctx)
+            seen["meta"] = ctx.meta.get(base.LOGGER_KEY)
+            seen["attribute"] = hasattr(ctx, "logger")
+            return result
+
+        with mock.patch.object(prepared, "invoke", spy):
+            call_command("probe", "Ada")
+        self.assertIsInstance(seen["meta"], logging.Logger)
+        self.assertFalse(seen["attribute"])
 
     def test_pass_logger_needs_the_command_decorator(self):
         with self.assertRaisesMessage(RuntimeError, "@pass_logger needs the @command()"):
