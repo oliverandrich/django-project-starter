@@ -128,7 +128,7 @@ A transaction-pooling PgBouncer breaks the lock.
 ## Live updates
 
 [django-pg-sse](https://github.com/oliverandrich/django-pg-sse) pushes server-sent events over PostgreSQL LISTEN/NOTIFY.
-Its README documents the API.
+[Its docs](https://django-pg-sse.readthedocs.io/) cover the API, the [settings](https://django-pg-sse.readthedocs.io/en/latest/settings.html) and [deployment](https://django-pg-sse.readthedocs.io/en/latest/deployment.html).
 This section covers the project's wiring.
 
 `broadcast(topic, data)` sends after the current transaction commits; a rollback sends nothing.
@@ -164,7 +164,9 @@ Logging in as another user without logging out first closes nothing: Django drop
 Every event is stored, so a reconnecting browser receives the events it missed.
 `EVENTS_RETENTION_HOURS` (default 24) sets how far back that reaches.
 The `@cron` task `prune_stream_events` in `<package>/tasks.py` deletes older events hourly.
-Give list items stable ids, so an event delivered twice replaces its element instead of adding one.
+A page can show an element before its stream delivers the same event, such as after the hub reconnects.
+htmx 4 appends with `beforeend` without comparing ids, so guard the target:
+`hx-swap-oob='beforeend target:"#messages:not(:has(> #message-7))"'`.
 Each granian worker holds up to 2 + `PG_SSE["STREAM_CONNECTIONS"]` (default 4) connections for the streams.
 They come on top of Django's pool.
 
