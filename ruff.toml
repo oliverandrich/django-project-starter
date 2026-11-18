@@ -1,6 +1,8 @@
 # The template tests. template/pyproject.toml.jinja configures ruff for generated projects.
 line-length = 100
 target-version = "py314"
+# makemigrations writes them; the generated project excludes them too.
+extend-exclude = ["**/migrations/*"]
 
 [lint]
 select = ["A", "B", "C4", "E", "F", "N", "Q", "TID", "UP", "W"]

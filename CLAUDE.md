@@ -9,7 +9,8 @@ The import above describes the project this template generates. Its `<package>` 
 
 This repository is a [Copier](https://copier.readthedocs.io/) template.
 
-- `copier.yml` holds the questions: `project_name`, `background_tasks` and `live_updates`.
+- `copier.yml` holds the questions: `project_name`, `background_tasks`, `login` and `live_updates`.
+  `login` is a multiselect; templates test it with `{% if "magic_link" in login %}`.
 - `template/` holds the generated project. Nothing outside it reaches a project.
 - Copier renders only files ending in `.jinja` and drops the suffix. Every other file is copied
   unchanged, so Django templates keep their own `{{ }}` and `{% %}`.
@@ -22,8 +23,8 @@ This repository is a [Copier](https://copier.readthedocs.io/) template.
 `mise run test-template` generates projects through Copier's Python API and checks them.
 `mise run lint` runs ruff on `template_tests/` and on the plain Python files under `template/`.
 The `.jinja` files are not valid Python, so ruff and basedpyright check them only in a
-generated project. The template workflow does that for each
-combination of `background_tasks` and `live_updates`.
+generated project. The template workflow does that for six answer combinations: all on,
+all off and each part alone.
 
 Two workflows exist:
 

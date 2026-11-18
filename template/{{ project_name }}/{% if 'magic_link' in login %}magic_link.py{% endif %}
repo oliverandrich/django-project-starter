@@ -1,0 +1,154 @@
+"""Single-use login links by email through django-sesame, for customer accounts the team creates.
+
+The link opens a confirmation page, and only its POST uses the token up. Mail scanners such as
+Outlook's Safe Links fetch every link before the recipient clicks it.
+"""
+
+from urllib.parse import urlencode
+
+from django import forms
+from django.conf import settings
+from django.contrib.auth import authenticate, get_user_model, login
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
+from django.contrib.auth.models import AbstractUser
+from django.core import checks
+from django.core.cache import cache
+from django.core.mail import send_mail
+from django.db.models import Q, QuerySet
+from django.db.models.functions import Lower
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
+from django.tasks import task
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.generic import TemplateView
+from django.utils.translation import gettext as _
+from django.views.decorators.http import require_http_methods, require_POST
+from sesame.backends import ModelBackend
+from sesame.utils import get_query_string
+
+# Seconds before the same account receives another link.
+RESEND_AFTER = 60
+
+
+class LinkRequestForm(forms.Form):
+    email = forms.EmailField()
+    next = forms.CharField(required=False)
+
+    def clean_email(self) -> str:
+        email = self.cleaned_data["email"].lower()
+        if _is_internal(email):
+            raise forms.ValidationError(_("Sign in with Microsoft."))
+        return email
+
+
+def _is_internal(email: str) -> bool:
+    return email.rpartition("@")[2] in settings.INTERNAL_EMAIL_DOMAINS
+
+
+def customers() -> QuerySet:
+    """The accounts a link may open. A mailbox alone must not open staff or password accounts."""
+    internal = Q()
+    for domain in settings.INTERNAL_EMAIL_DOMAINS:
+        internal |= Q(email__iendswith=f"@{domain}")
+    return get_user_model().objects.filter(
+        ~internal,
+        is_active=True,
+        is_staff=False,
+        is_superuser=False,
+        password__startswith=UNUSABLE_PASSWORD_PREFIX,
+    )
+
+
+class MagicLinkBackend(ModelBackend):
+    """django-sesame's backend, limited to the accounts customers() returns."""
+
+    def user_can_authenticate(self, user) -> bool:
+        return (
+            isinstance(user, AbstractUser)
+            and super().user_can_authenticate(user)
+            and not (user.is_staff or user.is_superuser or user.has_usable_password())
+            and not _is_internal(user.email.lower())
+        )
+
+
+def _safe_next(request: HttpRequest, url: str) -> str:
+    allowed = url_has_allowed_host_and_scheme(
+        url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    )
+    return url if url and allowed else ""
+
+
+@require_POST
+def request_link(request: HttpRequest) -> HttpResponse:
+    form = LinkRequestForm(request.POST)
+    if not form.is_valid():
+        context = {
+            "login_methods": settings.LOGIN_METHODS,
+            "link_form": form,
+            "next": form.data.get("next", ""),
+        }
+        return render(request, "registration/login.html", context, status=400)
+    # A task: with a queue, an unknown address answers as fast as a known one.
+    send_link.enqueue(form.cleaned_data["email"], _safe_next(request, form.cleaned_data["next"]))
+    return redirect("magic_link_sent")
+
+
+@task
+def send_link(email: str, next_url: str) -> None:
+    """Mail a login link to the customer account with this address, if there is one."""
+    # Lower("email"), the expression the unique index covers; email is lowercase already.
+    user = customers().alias(email_lower=Lower("email")).filter(email_lower=email).first()
+    # The key belongs to an account, so unknown addresses leave nothing in the cache.
+    if user is None or not cache.add(f"magic-link:{user.pk}", True, RESEND_AFTER):
+        return
+    query = get_query_string(user)
+    if next_url:
+        query += "&" + urlencode({"next": next_url})
+    # SITE_URL, not the request's Host header, which a client can set.
+    link = settings.SITE_URL + reverse("magic_link_login") + query
+    body = render_to_string("registration/magic_link_email.txt", {"link": link, "user": user})
+    send_mail(_("Your login link"), body, None, [user.email])
+
+
+link_sent = TemplateView.as_view(template_name="registration/magic_link_sent.html")
+
+
+@require_http_methods(["GET", "POST"])
+def login_with_link(request: HttpRequest) -> HttpResponse:
+    next_url = _safe_next(request, request.POST.get("next") or request.GET.get("next", ""))
+    if request.method == "GET":
+        context = {"token": request.GET.get("sesame", ""), "next": next_url}
+        return render(request, "registration/magic_link_open.html", context)
+    user = authenticate(request, sesame=request.POST.get("sesame", ""))
+    # The token is valid while last_login is unchanged. Moving it only if unchanged stops a second
+    # request with the same token between authenticate() and login().
+    used = user is not None and type(user).objects.filter(
+        pk=user.pk, last_login=user.last_login
+    ).update(last_login=timezone.now())
+    if not used:
+        return render(request, "registration/magic_link_open.html", {"invalid": True}, status=400)
+    login(request, user)
+    return redirect(next_url or settings.LOGIN_REDIRECT_URL)
+
+
+def check_settings(app_configs, **kwargs) -> list[checks.CheckMessage]:
+    """A deploy check: production needs SITE_URL, and with Microsoft INTERNAL_EMAIL_DOMAINS."""
+    if settings.DEBUG:
+        return []
+    errors = []
+    if not settings.SITE_URL:
+        errors.append(
+            checks.Error("SITE_URL is not set; login links need it.", id="magic_link.E001")
+        )
+    if "microsoft" in settings.LOGIN_METHODS and not settings.INTERNAL_EMAIL_DOMAINS:
+        errors.append(
+            checks.Error(
+                "INTERNAL_EMAIL_DOMAINS is empty; internal accounts could log in by link.",
+                hint="List the domains whose users sign in with Microsoft.",
+                id="magic_link.E002",
+            )
+        )
+    return errors

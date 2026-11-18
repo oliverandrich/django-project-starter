@@ -8,6 +8,8 @@ The project uses the [single folder layout](https://noumenal.es/notes/django/sin
 Models, views, admin, templates and commands live in the project package next to `settings.py`.
 The project package is the directory named after the project.
 It is itself the one Django app in `INSTALLED_APPS`.
+`<package>.User`, a subclass of `AbstractUser`, is `AUTH_USER_MODEL`; account fields go there.
+An email address belongs to one account at most, whatever its case.
 
 Do not create apps by default.
 Run `mise run manage startapp <name>` only when a part needs its own models and boundary.
@@ -185,7 +187,46 @@ htmx 4 appends with `beforeend` without comparing ids, so guard the target:
 Each granian worker holds up to 2 + `PG_SSE["STREAM_CONNECTIONS"]` (default 4) connections for the streams.
 They come on top of Django's pool.
 
-{% endraw %}{% endif %}{% raw %}## Tests
+{% endraw %}{% endif %}
+{% if login %}
+## Login
+
+`/login/` offers the methods in `settings.LOGIN_METHODS`: {{ login | join(", ") }}.
+`LoginView` in `<package>/login.py` shows them on one page.
+Logging out is a POST to `/logout/`.
+{% if "password" in login %}
+
+Django's login form checks username and password.
+{% endif %}
+{% if "microsoft" in login %}
+
+Internal users sign in with Microsoft Entra ID through django-auth-adfs.
+`ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` and `ENTRA_CLIENT_SECRET` configure it; `DEBUG` falls back to placeholders.
+The app registration needs `https://<host>/oauth2/callback` as its redirect URI.
+The first login creates the account from the `upn` claim; guests of the tenant are blocked.
+Entra groups are not mapped. `GROUPS_CLAIM` and `MIRROR_GROUPS` in `AUTH_ADFS` turn that on.
+{% endif %}
+{% if "magic_link" in login %}
+
+Customers log in with a single-use link by email through django-sesame, in `<package>/magic_link.py`.
+The team creates their accounts in the admin, with an unusable password.
+Staff, superusers and accounts with a password receive no link: a mailbox alone must not open them.
+A link works once, within 15 minutes (`SESAME_MAX_AGE`), and keeps a local `next`.
+It opens a page whose button logs in: mail scanners such as Outlook's Safe Links fetch links first.
+An account receives one link per minute, and the page answers the same for unknown addresses.
+The `send_link` task mails the link. {% if background_tasks %}Its queue makes the answer equally fast for every address.{% else %}Without a task queue it runs inside the request, so the response time shows whether an account exists.{% endif %}
+
+Links start with `SITE_URL`, never with the request's Host header.
+Links need a real mail backend in production, set through `EMAIL_URL`.
+The token is in the link's query string; keep query strings out of proxy access logs.
+`check --deploy` fails without `SITE_URL`{% if "microsoft" in login %} or `INTERNAL_EMAIL_DOMAINS`{% endif %}; the Docker entrypoint runs it before `migrate`.
+{% endif %}
+{% if "microsoft" in login and "magic_link" in login %}
+`INTERNAL_EMAIL_DOMAINS` lists the domains that must use Microsoft; they receive no link.
+{% endif %}
+
+{% endif %}
+{% raw %}## Tests
 
 Tests use Django's test framework with django-test-plus and model-bakery.
 The test runner in `<package>/test_runner.py` adds rich output.
@@ -196,6 +237,7 @@ Write a failing test before a fix or a feature.
 ## Production
 
 The Docker image runs `manage.py serve`, granian over ASGI on port 8000, and migrates on start.
+Before that it runs `check --deploy`, which stops the start on errors but not on warnings.
 Deployments run behind Caddy, which terminates TLS and compresses responses.
 Outside `DEBUG`, granian serves `STATIC_ROOT` itself with a one-year cache.
 `collectstatic` keeps only files with a content hash in their name, plus the manifest.

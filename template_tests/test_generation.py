@@ -24,6 +24,9 @@ UV_UPDATES = "package-ecosystem: uv"
 # Agent instructions. CLAUDE.md imports AGENTS.md.
 AGENT_FILES = ("AGENTS.md", "CLAUDE.md")
 
+# Every login method copier.yml offers.
+LOGINS = ["password", "microsoft", "magic_link"]
+
 # The repository's own files, outside template/.
 REPOSITORY_FILES = ("template_tests", "copier.yml", ".github/workflows/template.yml")
 
@@ -123,11 +126,14 @@ def test_every_rendered_file_loses_its_placeholder_and_suffix(generate, template
     assert offenders == []
 
 
+@pytest.mark.parametrize("login", [[], ["password"], ["microsoft"], ["magic_link"], LOGINS])
 @pytest.mark.parametrize("background_tasks", [True, False])
 @pytest.mark.parametrize("live_updates", [True, False])
-def test_every_generated_python_file_parses(generate, live_updates, background_tasks):
+def test_every_generated_python_file_parses(generate, live_updates, background_tasks, login):
     """A conditional that renders into an invalid position would pass every other test here."""
-    project = generate("acme_shop", live_updates=live_updates, background_tasks=background_tasks)
+    project = generate(
+        "acme_shop", live_updates=live_updates, background_tasks=background_tasks, login=login
+    )
 
     checked, broken = 0, []
     for path in sorted(project.rglob("*.py")):
@@ -267,7 +273,9 @@ def test_entrypoint_starts_each_process(generate, tmp_path_factory):
     stubs = tmp_path_factory.mktemp("stubs")
 
     web = _run_entrypoint(project, stubs).stdout.splitlines()
-    assert web[1] == "python manage.py migrate"
+    # Deploy checks fail on errors before anything touches the database.
+    assert web[0] == "python manage.py check --deploy --fail-level ERROR"
+    assert web.index("python manage.py migrate") > 0
     assert web[-1] == "python manage.py serve"
 
     worker = _run_entrypoint(project, stubs, "worker").stdout.splitlines()
@@ -352,6 +360,40 @@ def test_live_updates_without_background_tasks_documents_the_pruning(generate):
     """Without a scheduler, nothing deletes old events unless the project runs the command."""
     project = generate("acme_shop", background_tasks=False)
     assert "manage.py prune_stream_events" in (project / "AGENTS.md").read_text()
+
+
+def test_without_login_only_the_admin_logs_in(generate):
+    project = generate("acme_shop")
+    offenders = [
+        str(path.relative_to(project))
+        for path in project.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".toml", ".html"}
+        and re.search(r"django_auth_adfs|django-auth-adfs|sesame|LOGIN_METHODS", path.read_text())
+    ]
+    assert offenders == []
+    assert not (project / "acme_shop" / "login.py").exists()
+    assert not (project / "acme_shop" / "templates" / "registration").exists()
+
+
+def test_the_user_model_exists_without_login(generate):
+    """AUTH_USER_MODEL cannot change after the first migration, so every project has it."""
+    project = generate("acme_shop")
+    assert 'AUTH_USER_MODEL = "acme_shop.User"' in (project / "acme_shop/settings.py").read_text()
+    assert (project / "acme_shop/migrations/0001_initial.py").is_file()
+
+
+def test_login_methods_render_as_a_python_list(generate):
+    settings = (generate("acme_shop", login=LOGINS) / "acme_shop/settings.py").read_text()
+    assert 'LOGIN_METHODS = ["password", "microsoft", "magic_link"]' in settings.splitlines()
+
+
+def test_internal_domains_come_with_magic_links(generate):
+    """The setting exists with links; the deploy check demands it only together with Microsoft."""
+    links = generate("acme_shop", login=["magic_link"])
+    microsoft = generate("other_shop", login=["microsoft"])
+    assert "INTERNAL_EMAIL_DOMAINS" in (links / "acme_shop/settings.py").read_text()
+    assert "INTERNAL_EMAIL_DOMAINS" not in (microsoft / "other_shop/settings.py").read_text()
 
 
 def test_without_live_updates_nothing_names_django_pg_sse(generate):

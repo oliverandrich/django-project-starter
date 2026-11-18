@@ -1,0 +1,18 @@
+"""The login page. It offers the methods in settings.LOGIN_METHODS side by side."""
+
+from django.conf import settings
+from django.contrib.auth import views as auth_views
+from django.http import HttpRequest, HttpResponse, HttpResponseNotAllowed
+
+
+class LoginView(auth_views.LoginView):
+    redirect_authenticated_user = True
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        # Without the password method the form is not on the page, and a crafted POST must fail too.
+        if "password" not in settings.LOGIN_METHODS:
+            return HttpResponseNotAllowed(["GET"])
+        return super().post(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(login_methods=settings.LOGIN_METHODS, **kwargs)

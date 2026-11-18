@@ -1,0 +1,9 @@
+{% extends "registration/card.html" %}
+
+{% block title %}{% translate "Check your inbox" %}{% endblock %}
+
+{% block heading %}{% translate "Check your inbox" %}{% endblock %}
+
+{% block card %}
+    <p>{% translate "If the address has an account, a login link is on its way. It works once, within 15 minutes." %}</p>
+{% endblock card %}

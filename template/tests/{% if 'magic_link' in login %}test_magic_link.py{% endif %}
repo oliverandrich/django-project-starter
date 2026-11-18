@@ -1,0 +1,164 @@
+import re
+from importlib import import_module
+
+from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.hashers import make_password
+from django.core import checks, mail
+from django.core.cache import cache
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.urls import reverse
+from model_bakery import baker
+
+from tests.utils import PACKAGE
+
+magic_link = import_module(f"{PACKAGE}.magic_link")
+
+
+@override_settings(SITE_URL="https://shop.example")
+class MagicLinkTest(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = baker.make(
+            get_user_model(), email="kim@customer.example", password=make_password(None)
+        )
+
+    def request_link(self, email="kim@customer.example", **data):
+        return self.client.post(reverse("magic_link_request"), {"email": email, **data})
+
+    def link_from_mail(self) -> str:
+        (message,) = mail.outbox
+        match = re.search(r"https?://\S+", str(message.body))
+        assert match, message.body
+        return match.group(0)
+
+    def test_a_known_address_receives_a_link(self):
+        response = self.request_link("Kim@Customer.example")
+        self.assertRedirects(response, reverse("magic_link_sent"))
+        self.assertEqual(mail.outbox[0].to, ["kim@customer.example"])
+        self.assertTrue(
+            self.link_from_mail().startswith("https://shop.example" + reverse("magic_link_login"))
+        )
+
+    # A wildcard such as .example.com lets a client pick any subdomain as its Host header.
+    @override_settings(ALLOWED_HOSTS=["testserver", "attacker.example"])
+    def test_the_host_header_does_not_choose_the_link(self):
+        self.client.post(
+            reverse("magic_link_request"),
+            {"email": "kim@customer.example"},
+            headers={"host": "attacker.example"},
+        )
+        self.assertNotIn("attacker.example", mail.outbox[0].body)
+
+    def test_staff_and_password_accounts_receive_no_link(self):
+        baker.make(
+            get_user_model(),
+            email="staff@customer.example",
+            is_staff=True,
+            password=make_password(None),
+        )
+        baker.make(get_user_model(), email="pw@customer.example", password=make_password("pw"))
+        self.request_link("staff@customer.example")
+        self.request_link("pw@customer.example")
+        self.assertEqual(mail.outbox, [])
+
+    def test_an_unknown_address_gets_the_same_answer_and_leaves_nothing_behind(self):
+        response = self.request_link("nobody@customer.example")
+        self.assertRedirects(response, reverse("magic_link_sent"))
+        self.assertEqual(mail.outbox, [])
+        # The rate limit belongs to accounts, so the known address still receives its link.
+        self.request_link()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_an_inactive_account_receives_no_link(self):
+        self.user.is_active = False
+        self.user.save()
+        self.request_link()
+        self.assertEqual(mail.outbox, [])
+
+    def test_a_second_request_within_a_minute_sends_nothing(self):
+        self.request_link()
+        self.request_link()
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(INTERNAL_EMAIL_DOMAINS=["customer.example"])
+    def test_an_internal_address_is_sent_to_microsoft(self):
+        response = self.request_link()
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Sign in with Microsoft", status_code=400)
+        self.assertEqual(mail.outbox, [])
+
+    def test_opening_the_link_does_not_log_in(self):
+        # Mail scanners fetch the link; only the button on the page uses the token.
+        self.request_link()
+        response = self.client.get(self.link_from_mail())
+        self.assertContains(response, 'name="sesame"')
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_the_button_logs_in_once(self):
+        self.request_link()
+        page = self.client.get(self.link_from_mail())
+        token = page.context["token"]
+        response = self.client.post(reverse("magic_link_login"), {"sesame": token})
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.pk)
+        self.client.logout()
+        again = self.client.post(reverse("magic_link_login"), {"sesame": token})
+        self.assertEqual(again.status_code, 400)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_the_link_keeps_a_local_next(self):
+        self.request_link(next="/reports/")
+        page = self.client.get(self.link_from_mail())
+        self.assertEqual(page.context["next"], "/reports/")
+        response = self.client.post(
+            reverse("magic_link_login"), {"sesame": page.context["token"], "next": "/reports/"}
+        )
+        self.assertRedirects(response, "/reports/", fetch_redirect_response=False)
+
+    def test_the_link_drops_an_outside_next(self):
+        self.request_link(next="https://attacker.example/")
+        self.assertNotIn("attacker.example", mail.outbox[0].body)
+
+    def test_a_token_whose_account_moved_on_is_refused(self):
+        # login() moves last_login; a second request in between must not log in.
+        self.request_link()
+        token = self.client.get(self.link_from_mail()).context["token"]
+        get_user_model().objects.filter(pk=self.user.pk).update(last_login="2030-01-01T00:00Z")
+        response = self.client.post(reverse("magic_link_login"), {"sesame": token})
+        self.assertEqual(response.status_code, 400)
+
+    def test_the_backend_refuses_staff_even_with_a_valid_token(self):
+        # A token from anywhere, such as a shell, must not open a staff account.
+        token = magic_link.get_query_string(self.user).removeprefix("?sesame=")
+        get_user_model().objects.filter(pk=self.user.pk).update(is_staff=True)
+        self.assertIsNone(authenticate(sesame=token))
+
+    def test_a_forged_token_is_refused(self):
+        response = self.client.post(reverse("magic_link_login"), {"sesame": "forged"})
+        self.assertEqual(response.status_code, 400)
+
+
+class MagicLinkCheckTest(SimpleTestCase):
+    @override_settings(DEBUG=False, SITE_URL="", LOGIN_METHODS=["magic_link"])
+    def test_production_needs_a_site_url(self):
+        ids = [error.id for error in magic_link.check_settings(None)]
+        self.assertEqual(ids, ["magic_link.E001"])
+
+    @override_settings(
+        DEBUG=False,
+        SITE_URL="https://shop.example",
+        LOGIN_METHODS=["microsoft", "magic_link"],
+        INTERNAL_EMAIL_DOMAINS=[],
+    )
+    def test_microsoft_needs_internal_domains(self):
+        ids = [error.id for error in magic_link.check_settings(None)]
+        self.assertEqual(ids, ["magic_link.E002"])
+
+    def test_it_runs_with_check_deploy_only(self):
+        # The test runner sets DEBUG to False; a regular check would fail every test run.
+        self.assertIn(magic_link.check_settings, checks.registry.registry.get_checks(True))
+        self.assertNotIn(magic_link.check_settings, checks.registry.registry.get_checks(False))
+
+    @override_settings(DEBUG=True, SITE_URL="")
+    def test_development_needs_neither(self):
+        self.assertEqual(magic_link.check_settings(None), [])
