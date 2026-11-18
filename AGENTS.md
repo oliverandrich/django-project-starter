@@ -197,3 +197,11 @@ granian's default is its backlog of 1024 divided by the workers.
 The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
 Only the web process migrates, so start the others after it.
 `SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.
+
+`GET /health` answers `{"status": "ok"}` without touching the database.
+`GET /health/ready` also checks the database and the cache, and answers 503 when one fails.
+`<package>/health.py` answers both before host validation, the HTTPS redirect, sessions and CSRF.
+A health check on the loopback therefore passes without an entry in `ALLOWED_HOSTS`.
+The image sets no `HEALTHCHECK`, because the worker and the scheduler serve no HTTP.
+Set it on the web container only, for example:
+`python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"`.

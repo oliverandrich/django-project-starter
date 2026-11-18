@@ -70,6 +70,8 @@ INSTALLED_APPS += ["{{ project_name }}"]
 # Middleware definitions
 # https://docs.djangoproject.com/en/6.1/topics/http/middleware/
 MIDDLEWARE = [
+    # First, so a container health check on the loopback passes without ALLOWED_HOSTS.
+    "{{ project_name }}.health.HealthMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
