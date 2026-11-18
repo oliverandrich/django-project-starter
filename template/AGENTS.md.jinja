@@ -1,4 +1,4 @@
-# AGENTS.md
+{% raw %}# AGENTS.md
 
 Conventions for this Django project. They apply to people and coding agents alike.
 
@@ -138,7 +138,7 @@ The day-of-week field takes names such as `Mon`, not numbers.
 A second scheduler exits after 15 seconds.
 A transaction-pooling PgBouncer breaks the lock.
 
-## Live updates
+{% endraw %}{% if live_updates %}{% raw %}## Live updates
 
 [django-pg-sse](https://github.com/oliverandrich/django-pg-sse) pushes server-sent events over PostgreSQL LISTEN/NOTIFY.
 [Its docs](https://django-pg-sse.readthedocs.io/) cover the API, the [settings](https://django-pg-sse.readthedocs.io/en/latest/settings.html) and [deployment](https://django-pg-sse.readthedocs.io/en/latest/deployment.html).
@@ -183,7 +183,7 @@ htmx 4 appends with `beforeend` without comparing ids, so guard the target:
 Each granian worker holds up to 2 + `PG_SSE["STREAM_CONNECTIONS"]` (default 4) connections for the streams.
 They come on top of Django's pool.
 
-## Tests
+{% endraw %}{% endif %}{% raw %}## Tests
 
 Tests use Django's test framework with django-test-plus and model-bakery.
 The test runner in `<package>/test_runner.py` adds rich output.
@@ -218,3 +218,4 @@ A health check on the loopback therefore passes without an entry in `ALLOWED_HOS
 The image sets no `HEALTHCHECK`, because the worker and the scheduler serve no HTTP.
 Set it on the web container only, for example:
 `python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"`.
+{% endraw %}

@@ -13,6 +13,7 @@ def prune_task_results() -> None:
     # prune_db_task_results rejects any other backend.
     if isinstance(task_backends[DEFAULT_TASK_BACKEND_ALIAS], DatabaseBackend):
         call_command("prune_db_task_results", queue_name="*", min_age_days=14, verbosity=0)
+{% if live_updates %}
 
 
 @cron("17 * * * *")
@@ -20,3 +21,4 @@ def prune_task_results() -> None:
 def prune_stream_events() -> None:
     """Delete server-sent events older than PG_SSE["RETENTION_HOURS"], the reach of replay."""
     call_command("prune_stream_events", verbosity=0)
+{% endif %}

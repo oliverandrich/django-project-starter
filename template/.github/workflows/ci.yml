@@ -14,8 +14,6 @@ permissions:
 
 jobs:
   checks:
-    # The template's pyproject.toml names no valid package, so these jobs only run in a project.
-    if: github.repository != 'oliverandrich/django-project-starter'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -54,8 +52,6 @@ jobs:
         run: uv cache prune --ci
 
   docker:
-    # The template's pyproject.toml names no valid package, so these jobs only run in a project.
-    if: github.repository != 'oliverandrich/django-project-starter'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -37,6 +37,7 @@ class DatabaseSettingTest(SimpleTestCase):
         # PgBouncer in transaction mode needs Django's pool off.
         database = evaluate_settings(DATABASE_POOL="false")["DATABASES"]["default"]
         self.assertNotIn("pool", database.get("OPTIONS", {}))
+{% if live_updates %}
 
 
 class EventsSettingTest(SimpleTestCase):
@@ -46,3 +47,4 @@ class EventsSettingTest(SimpleTestCase):
     def test_retention_comes_from_the_environment(self):
         pg_sse = evaluate_settings(EVENTS_RETENTION_HOURS="72")["PG_SSE"]
         self.assertEqual(pg_sse["RETENTION_HOURS"], 72)
+{% endif %}

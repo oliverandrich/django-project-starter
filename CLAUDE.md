@@ -1,58 +1,34 @@
 # CLAUDE.md
 
-@AGENTS.md
+@template/AGENTS.md.jinja
 
-AGENTS.md describes the project this template generates. Its `<package>` is `project_name/` here.
-The rest of this file concerns the template repository itself.
+The import above describes the project this template generates. Its `<package>` is
+`template/{{ project_name }}/` here. The rest of this file concerns the template repository.
 
 ## Working on the template itself
 
-This repository is a template for `django-admin startproject`. Generation replaces every
-`{{ project_name }}` placeholder and renames `project_name/`. Two things follow from that:
+This repository is a [Copier](https://copier.readthedocs.io/) template.
 
-- **`uv sync` does not work here.** `pyproject.toml` says `name = "{{ project_name }}"`, which uv
-  rejects as a package name, so the repository has no `.venv` and never will. `mise run lint`
-  therefore fails at the basedpyright hook, which runs through `uv run`. Run
-  `SKIP=basedpyright mise run lint` here; basedpyright belongs to the generated project, where
-  `mise run lint` passes in full.
-- **`mise run test-template` is the suite that applies here**, and it runs on `uvx pytest` for
-  exactly the reason above — `uv run` would parse `pyproject.toml` and fail. Its task file lives
-  in `template_tests/tasks/`, wired in through `[task_config] includes` in `mise.toml`, so it
-  exists here and is simply absent from a generated project. `mise run test` is the *generated*
-  project's Django suite and needs a project.
+- `copier.yml` holds the questions: `project_name` and `live_updates`.
+- `template/` holds the generated project. Nothing outside it reaches a project.
+- Copier renders only files ending in `.jinja` and drops the suffix. Every other file is copied
+  unchanged, so Django templates keep their own `{{ }}` and `{% %}`.
+- A `.jinja` file that contains Django template syntax wraps it in `{% raw %}`, as
+  `AGENTS.md.jinja` does.
+- `trim_blocks` is on: a line that holds only `{% if %}` or `{% endif %}` disappears.
+- A file that exists only with an answer has a conditional name, such as
+  `{% if live_updates %}events.py{% endif %}`.
 
-Two workflows live in `.github/workflows/`:
+`mise run test-template` generates projects through Copier's Python API and checks them.
+`mise run lint` lints `template_tests/`. The `.jinja` files are not valid Python, so ruff and
+basedpyright check them only in a generated project. The template workflow does that for each
+value of `live_updates`.
 
-- `ci.yml` belongs to the generated project. Its jobs skip this repository through an `if:` condition,
-  because they cannot pass here.
-- `template.yml` tests this repository. It ships with every project, and `mise run bootstrap`
-  deletes it there.
+Two workflows exist:
 
-Files named `*.project.*` belong to the generated project. `mise run bootstrap` renames each
-listed one to the name without `.project`, replacing this repository's version:
-
-- `.github/dependabot.project.yml` becomes `.github/dependabot.yml`.
-- `CLAUDE.project.md` becomes `CLAUDE.md` and only imports `AGENTS.md`.
-
-Anything added to the repository is copied into every generated project unless its directory is
-named in the `--exclude` flags of the documented command. That includes dot-directories, and it
-is the reason `--exclude` is mandatory rather than optional.
+- `template/.github/workflows/ci.yml` belongs to the generated project.
+- `.github/workflows/template.yml` tests this repository and stays here.
 
 ## Template usage
 
-To create a new Django project using this template:
-
-```bash
-uv run --with=django django-admin startproject \
-    --extension=ini,py,toml,sh \
-    --exclude=template_tests \
-    --template=https://github.com/oliverandrich/django-project-starter/archive/refs/heads/main.zip \
-    your_project_name
-```
-
-`--exclude` is required: without it `startproject` drops every dot-directory, `.mise/` among
-them, and `template_tests/` would be copied into the new project and rendered as a Django
-template. README.md is the authoritative copy of this command — `template_tests/` parses it
-from there.
-
-This will replace all `{{ project_name }}` placeholders with your actual project name throughout the codebase.
+README.md documents `copier copy` and `copier update`.
