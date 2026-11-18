@@ -1,4 +1,4 @@
-name: CI
+{% raw %}name: CI
 
 on:
   push:
@@ -31,7 +31,13 @@ jobs:
       # A fresh checkout has no .env, and the settings refuse an empty key outside DEBUG.
       SECRET_KEY: ci-only-not-secret
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-    steps:
+{% endraw %}
+{% if "microsoft" in login %}
+      # django-auth-adfs refuses to start without them outside DEBUG; tests never reach Entra.
+      ENTRA_TENANT_ID: 00000000-0000-0000-0000-000000000000
+      ENTRA_CLIENT_ID: 00000000-0000-0000-0000-000000000000
+{% endif %}
+{% raw %}    steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
       - uses: actions/cache@v6
@@ -62,3 +68,4 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+{% endraw %}
