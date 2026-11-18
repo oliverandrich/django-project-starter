@@ -10,16 +10,16 @@ from django.contrib import admin
 {% if login %}
 from django.contrib.auth.views import LogoutView
 {% endif %}
-from django.contrib.staticfiles.views import serve as serve_static
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
-{% if login %}
 
+{% if login %}
 from {{ project_name }} import login
 {% endif %}
 {% if "magic_link" in login %}
 from {{ project_name }} import magic_link
 {% endif %}
+from {{ project_name }}.views import serve_static
 
 urlpatterns = [
     # Our urls
