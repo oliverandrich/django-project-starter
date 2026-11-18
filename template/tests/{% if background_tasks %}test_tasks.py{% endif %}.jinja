@@ -31,6 +31,11 @@ class TaskLoggingTest(SimpleTestCase):
         cache = evaluate_settings()["CACHES"]["django_structlog"]
         self.assertGreaterEqual(cache["TIMEOUT"], 60 * 60)
 
+    def test_the_scheduler_lock_renewal_stays_out_of_the_log(self):
+        # django-crontask extends its lock every few seconds through an APScheduler job.
+        loggers = evaluate_settings()["LOGGING"]["loggers"]
+        self.assertEqual(loggers["apscheduler"]["level"], "WARNING")
+
     def test_task_bookkeeping_logs_only_failures(self):
         loggers = evaluate_settings()["LOGGING"]["loggers"]
         self.assertEqual(loggers["django_structlog.tasks.receivers"]["level"], "WARNING")
