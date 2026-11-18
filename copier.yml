@@ -22,6 +22,16 @@ background_tasks:
   help: Background tasks with django-tasks-db, a worker and a cron scheduler (django-crontask)?
   default: true
 
+login:
+  type: str
+  help: Login methods for the site's users (none keeps only the admin login)
+  multiselect: true
+  choices:
+    Password, through Django's own login view: password
+    Microsoft Entra ID for internal users (django-auth-adfs): microsoft
+    Single-use link by email for customers the team creates (django-sesame): magic_link
+  default: []
+
 live_updates:
   type: bool
   help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?

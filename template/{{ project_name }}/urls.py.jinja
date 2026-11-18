@@ -7,13 +7,36 @@ from urllib.parse import urlsplit
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+{% if login %}
+from django.contrib.auth.views import LogoutView
+{% endif %}
 from django.contrib.staticfiles.views import serve as serve_static
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
+{% if login %}
+
+from {{ project_name }} import login
+{% endif %}
+{% if "magic_link" in login %}
+from {{ project_name }} import magic_link
+{% endif %}
 
 urlpatterns = [
     # Our urls
     path("", TemplateView.as_view(template_name="base.html")),
+{% if login %}
+    path("login/", login.LoginView.as_view(), name="login"),
+    path("logout/", LogoutView.as_view(), name="logout"),
+{% endif %}
+{% if "microsoft" in login %}
+    # Entra ID sign-in; the app registration's redirect URI is /oauth2/callback.
+    path("oauth2/", include("django_auth_adfs.urls")),
+{% endif %}
+{% if "magic_link" in login %}
+    path("login/link/", magic_link.request_link, name="magic_link_request"),
+    path("login/link/sent/", magic_link.link_sent, name="magic_link_sent"),
+    path("login/link/open/", magic_link.login_with_link, name="magic_link_login"),
+{% endif %}
     # Admin area
     path("admin/", admin.site.urls),
 {% if live_updates %}

@@ -70,10 +70,16 @@ INSTALLED_APPS += [
     "django_pg_sse",
 {% endif %}
     "django_structlog",
+{% if "microsoft" in login %}
+    "django_auth_adfs",
+{% endif %}
 ]
 
 # Our apps
 INSTALLED_APPS += ["{{ project_name }}"]
+
+# A project model from the start: swapping it after the first migration breaks the history.
+AUTH_USER_MODEL = "{{ project_name }}.User"
 
 # Middleware definitions
 # https://docs.djangoproject.com/en/6.1/topics/http/middleware/
@@ -151,7 +157,59 @@ if env.bool("DATABASE_POOL", default=True):
 # https://docs.djangoproject.com/en/6.1/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
+{% if "microsoft" in login %}
+    "django_auth_adfs.backend.AdfsAuthCodeBackend",
+{% endif %}
+{% if "magic_link" in login %}
+    # django-sesame's backend, limited to customer accounts.
+    "{{ project_name }}.magic_link.MagicLinkBackend",
+{% endif %}
 ]
+{% if login %}
+
+# The methods the login page offers. Each needs its library and URLs, so Copier sets this list.
+LOGIN_METHODS = {{ login | tojson }}
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
+{% endif %}
+{% if "microsoft" in login %}
+
+# Sign-in with Microsoft Entra ID through django-auth-adfs
+# https://django-auth-adfs.readthedocs.io/en/latest/azure_ad_config_guide.html
+# The app registration needs https://<host>/oauth2/callback as its redirect URI.
+# DEBUG falls back to placeholders, so the project starts before the app is registered.
+ENTRA_PLACEHOLDER = "00000000-0000-0000-0000-000000000000"
+ENTRA_CLIENT_ID = env.str("ENTRA_CLIENT_ID", default=ENTRA_PLACEHOLDER if DEBUG else "")
+AUTH_ADFS = {
+    # The organisation's own tenant, so only its accounts sign in.
+    "TENANT_ID": env.str("ENTRA_TENANT_ID", default=ENTRA_PLACEHOLDER if DEBUG else ""),
+    "CLIENT_ID": ENTRA_CLIENT_ID,
+    "CLIENT_SECRET": env.str("ENTRA_CLIENT_SECRET", default=""),
+    "RELYING_PARTY_ID": ENTRA_CLIENT_ID,
+    "AUDIENCE": ENTRA_CLIENT_ID,
+    "USERNAME_CLAIM": "upn",
+    "CLAIM_MAPPING": {"first_name": "given_name", "last_name": "family_name", "email": "upn"},
+    # Guests of other organisations in the tenant are not internal users.
+    "BLOCK_GUEST_USERS": True,
+    # Entra groups stay out of Django until a project maps them.
+    "GROUPS_CLAIM": None,
+}
+{% endif %}
+{% if "magic_link" in login %}
+
+# Single-use login links by email through django-sesame
+# https://django-sesame.readthedocs.io/
+# A link opens a confirmation page, so a mail scanner that fetches it does not use it up.
+SESAME_MAX_AGE = 15 * 60
+SESAME_ONE_TIME = True
+# Links start with it, not with the request's Host header, which a client can set.
+SITE_URL = env.str("SITE_URL", default="http://localhost:8000" if DEBUG else "").rstrip("/")
+# Addresses in these domains sign in with Microsoft; the login page sends them no link.
+INTERNAL_EMAIL_DOMAINS = [
+    domain.lower() for domain in env.list("INTERNAL_EMAIL_DOMAINS", default=[])
+]
+{% endif %}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators

@@ -25,3 +25,65 @@ msgstr "Englisch"
 #: config/settings.py:151
 msgid "German"
 msgstr "Deutsch"
+
+#: templates/registration/login.html
+msgid "Log in"
+msgstr "Anmelden"
+
+#: templates/registration/login.html
+msgid "Log in with Microsoft"
+msgstr "Mit Microsoft anmelden"
+
+#: templates/registration/login.html
+msgid "Username"
+msgstr "Benutzername"
+
+#: templates/registration/login.html
+msgid "Password"
+msgstr "Passwort"
+
+#: templates/registration/login.html
+msgid "Email address"
+msgstr "E-Mail-Adresse"
+
+#: templates/registration/login.html
+msgid "Email me a login link"
+msgstr "Anmeldelink per E-Mail senden"
+
+#: magic_link.py
+msgid "Sign in with Microsoft."
+msgstr "Bitte melden Sie sich mit Microsoft an."
+
+#: magic_link.py
+msgid "Your login link"
+msgstr "Ihr Anmeldelink"
+
+#: templates/registration/magic_link_sent.html
+msgid "Check your inbox"
+msgstr "Bitte prüfen Sie Ihr Postfach"
+
+#: templates/registration/magic_link_sent.html
+msgid ""
+"If the address has an account, a login link is on its way. It works once, "
+"within 15 minutes."
+msgstr ""
+"Falls zu der Adresse ein Konto gehört, ist ein Anmeldelink unterwegs. Er "
+"funktioniert einmal, innerhalb von 15 Minuten."
+
+#: templates/registration/magic_link_open.html
+msgid "This link is invalid, expired or already used."
+msgstr "Dieser Link ist ungültig, abgelaufen oder wurde schon benutzt."
+
+#: templates/registration/magic_link_open.html
+msgid "Request a new link"
+msgstr "Neuen Link anfordern"
+
+#: templates/registration/magic_link_email.txt
+msgid "Open this link to log in. It works once, within 15 minutes:"
+msgstr ""
+"Öffnen Sie diesen Link, um sich anzumelden. Er funktioniert einmal, "
+"innerhalb von 15 Minuten:"
+
+#: templates/registration/magic_link_email.txt
+msgid "If you did not ask for it, ignore this email."
+msgstr "Falls Sie ihn nicht angefordert haben, ignorieren Sie diese E-Mail."

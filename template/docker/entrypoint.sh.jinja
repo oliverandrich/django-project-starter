@@ -10,6 +10,9 @@ set -eu
 # Any other command runs as given, such as `python manage.py createsuperuser`.
 case "${1:-web}" in
 web)
+    # Fails on errors only; Django's own deploy checks are warnings.
+    python manage.py check --deploy --fail-level ERROR
+
     echo "Migrating database..."
     python manage.py migrate
 

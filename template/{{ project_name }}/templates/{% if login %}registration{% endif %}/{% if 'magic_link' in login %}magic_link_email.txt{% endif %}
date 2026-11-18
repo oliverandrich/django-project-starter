@@ -1,0 +1,6 @@
+{% autoescape off %}{% translate "Open this link to log in. It works once, within 15 minutes:" %}
+
+{{ link }}
+
+{% translate "If you did not ask for it, ignore this email." %}
+{% endautoescape %}

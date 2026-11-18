@@ -1,0 +1,31 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from model_bakery import baker
+
+
+class LoginPageTest(TestCase):
+    def test_the_page_answers(self):
+        response = self.client.get(reverse("login"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_a_logged_in_user_is_sent_on(self):
+        self.client.force_login(baker.make(get_user_model()))
+        self.assertRedirects(self.client.get(reverse("login")), "/", fetch_redirect_response=False)
+
+    @override_settings(LOGIN_METHODS=[])
+    def test_a_password_post_fails_without_the_password_method(self):
+        baker.make(get_user_model(), username="ada", password=make_password("secret-enough"))
+        response = self.client.post(
+            reverse("login"), {"username": "ada", "password": "secret-enough"}
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class LogoutTest(TestCase):
+    def test_logging_out_ends_the_session(self):
+        self.client.force_login(baker.make(get_user_model()))
+        self.client.post(reverse("logout"))
+        self.assertNotIn("_auth_user_id", self.client.session)

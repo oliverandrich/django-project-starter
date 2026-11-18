@@ -27,9 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Every answer combination would be 32 jobs. These cover all on, all off and each part alone.
       matrix:
-        live_updates: [true, false]
-        background_tasks: [true, false]
+        include:
+          - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]' }
+          - { live_updates: false, background_tasks: false, login: "[]" }
+          - { live_updates: true, background_tasks: false, login: "[]" }
+          - { live_updates: false, background_tasks: true, login: "[]" }
+          - { live_updates: false, background_tasks: false, login: '["password"]' }
+          - { live_updates: false, background_tasks: false, login: '["microsoft","magic_link"]' }
     services:
       postgres:
         image: postgres:18
@@ -73,6 +79,7 @@ jobs:
           uvx copier copy --defaults --vcs-ref HEAD
           --data project_name=acme_shop --data live_updates=${{ matrix.live_updates }}
           --data background_tasks=${{ matrix.background_tasks }}
+          --data 'login=${{ matrix.login }}'
           . ../acme_shop
       - name: Bootstrap
         run: |

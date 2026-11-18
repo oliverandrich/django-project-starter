@@ -1,0 +1,31 @@
+from django.conf import settings
+from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
+
+from tests.utils import evaluate_settings
+
+
+class MicrosoftLoginPageTest(TestCase):
+    def test_the_page_links_to_microsoft(self):
+        response = self.client.get(reverse("login"), {"next": "/reports/"})
+        self.assertContains(response, f'href="{reverse("django_auth_adfs:login")}?next=/reports/"')
+
+
+class MicrosoftSettingsTest(SimpleTestCase):
+    def test_the_backend_is_enabled(self):
+        self.assertIn(
+            "django_auth_adfs.backend.AdfsAuthCodeBackend", settings.AUTHENTICATION_BACKENDS
+        )
+
+    def test_the_tenant_and_client_come_from_the_environment(self):
+        auth = evaluate_settings(ENTRA_TENANT_ID="tenant", ENTRA_CLIENT_ID="client")["AUTH_ADFS"]
+        self.assertEqual(auth["TENANT_ID"], "tenant")
+        self.assertEqual((auth["CLIENT_ID"], auth["RELYING_PARTY_ID"]), ("client", "client"))
+
+    def test_production_has_no_placeholder(self):
+        # django-auth-adfs then refuses to start instead of sending users to a fake tenant.
+        auth = evaluate_settings(DEBUG="false")["AUTH_ADFS"]
+        self.assertEqual((auth["TENANT_ID"], auth["CLIENT_ID"]), ("", ""))
+
+    def test_guests_of_the_tenant_are_blocked(self):
+        self.assertIs(evaluate_settings()["AUTH_ADFS"]["BLOCK_GUEST_USERS"], True)

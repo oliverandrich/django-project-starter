@@ -1,0 +1,20 @@
+{% extends "registration/card.html" %}
+
+{% block title %}{% translate "Log in" %}{% endblock %}
+
+{% block heading %}{% translate "Log in" %}{% endblock %}
+
+{% block card %}
+    {% if invalid %}
+        <p class="text-error">{% translate "This link is invalid, expired or already used." %}</p>
+        <a class="btn" href="{% url 'login' %}">{% translate "Request a new link" %}</a>
+    {% else %}
+        {# A POST, not the GET of the link: mail scanners fetch links and would use the token up. #}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="sesame" value="{{ token }}">
+            <input type="hidden" name="next" value="{{ next }}">
+            <button class="btn btn-primary w-full">{% translate "Log in" %}</button>
+        </form>
+    {% endif %}
+{% endblock card %}

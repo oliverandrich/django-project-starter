@@ -23,6 +23,12 @@ dependencies = [
   "django-pg-sse>=0.4.0",
 {% endif %}
   "django-structlog>=11.0.0",
+{% if "microsoft" in login %}
+  "django-auth-adfs>=1.16.0",
+{% endif %}
+{% if "magic_link" in login %}
+  "django-sesame>=3.2.5",
+{% endif %}
 ]
 
 [dependency-groups]
