@@ -2,7 +2,11 @@
 
 set -eu
 
+{% if background_tasks %}
 # One image runs three processes. The Dockerfile's CMD selects "web".
+{% else %}
+# The Dockerfile's CMD selects "web".
+{% endif %}
 # Any other command runs as given, such as `python manage.py createsuperuser`.
 case "${1:-web}" in
 web)
@@ -12,6 +16,7 @@ web)
     echo "Starting granian..."
     exec python manage.py serve
     ;;
+{% if background_tasks %}
 worker)
     # db_worker fails on any task backend other than django_tasks_db's, the default.
     exec python manage.py db_worker
@@ -20,6 +25,7 @@ scheduler)
     # The heartbeat serves Sentry cron monitors and otherwise adds a task every minute.
     exec python manage.py crontask --no-heartbeat
     ;;
+{% endif %}
 *)
     exec "$@"
     ;;

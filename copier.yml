@@ -17,6 +17,11 @@ project_name:
     Use lowercase letters, digits and underscores, starting with a letter.
     {% endif %}
 
+background_tasks:
+  type: bool
+  help: Background tasks with django-tasks-db, a worker and a cron scheduler (django-crontask)?
+  default: true
+
 live_updates:
   type: bool
   help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?

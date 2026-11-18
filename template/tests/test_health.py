@@ -4,10 +4,11 @@ from asgiref.sync import iscoroutinefunction
 from django.db import OperationalError
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils.module_loading import import_string
+from tests.utils import PACKAGE
 
 # A container health check connects to the loopback, which is not a public host name.
 LOOPBACK = {"host": "127.0.0.1:8000"}
-HEALTH = "{{ project_name }}.health"
+HEALTH = f"{PACKAGE}.health"
 HealthMiddleware = import_string(f"{HEALTH}.HealthMiddleware")
 
 

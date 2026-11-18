@@ -72,7 +72,11 @@ RUN chown -R appuser:appuser /app $UV_PROJECT_ENVIRONMENT $UV_PYTHON_INSTALL_DIR
 # Switch to the non-root user
 USER appuser
 
+{% if background_tasks %}
 # Start the application server. `docker run <image> worker` or `scheduler` starts the others.
+{% else %}
+# Start the application server.
+{% endif %}
 WORKDIR /app
 EXPOSE 8000
 ENTRYPOINT ["docker/entrypoint.sh"]

@@ -5,8 +5,7 @@ from typing import Any
 
 from django.db import connection
 
-# A string, so the template repository stays valid Python before startproject renders it.
-base = import_module("{{ project_name }}.management.base")
+base = import_module("..base", __package__)
 
 
 @base.command()

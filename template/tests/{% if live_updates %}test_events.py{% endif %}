@@ -6,9 +6,10 @@ from django.contrib.auth.models import AnonymousUser, User
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
 from django.utils.module_loading import import_string
+from tests.utils import PACKAGE
 
 # A string, so the template repository stays valid Python before startproject renders it.
-events = import_module("{{ project_name }}.events")
+events = import_module(f"{PACKAGE}.events")
 
 
 class CanSubscribeTest(SimpleTestCase):

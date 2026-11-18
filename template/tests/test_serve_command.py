@@ -8,10 +8,9 @@ from unittest import mock
 from django.conf import settings
 from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
+from tests.utils import PACKAGE
 
-serve = import_module("{{ project_name }}.management.commands.serve")
-
-PACKAGE = "{{ project_name }}"
+serve = import_module(f"{PACKAGE}.management.commands.serve")
 
 
 class ServeCommandTest(SimpleTestCase):

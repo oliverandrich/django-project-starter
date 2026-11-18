@@ -1,7 +1,7 @@
 from django.core.files.storage import FileSystemStorage, default_storage
 from django.test import SimpleTestCase
 
-from tests.utils import evaluate_settings
+from tests.utils import PACKAGE, evaluate_settings
 
 
 class StoragesTest(SimpleTestCase):
@@ -14,7 +14,7 @@ class DatabaseSettingTest(SimpleTestCase):
     def test_local_postgresql_by_default(self):
         database = evaluate_settings()["DATABASES"]["default"]
         self.assertEqual(database["ENGINE"], "django.db.backends.postgresql")
-        self.assertEqual(database["NAME"], "{{ project_name }}")
+        self.assertEqual(database["NAME"], PACKAGE)
 
     def test_database_url_selects_the_database(self):
         url = "postgres://app:secret@db.example.com:5433/shop"

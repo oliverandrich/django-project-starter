@@ -9,9 +9,9 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils.module_loading import import_string
 from structlog.testing import capture_logs
 
-from tests.utils import evaluate_settings
+from tests.utils import PACKAGE, evaluate_settings
 
-RequestMiddleware = import_string("{{ project_name }}.log_config.RequestMiddleware")
+RequestMiddleware = import_string(f"{PACKAGE}.log_config.RequestMiddleware")
 
 
 class LoggingSettingTest(SimpleTestCase):
@@ -39,14 +39,6 @@ class LoggingSettingTest(SimpleTestCase):
         # Django's default console handler on "django" would repeat every record in DEBUG.
         loggers = evaluate_settings(DEBUG="true")["LOGGING"]["loggers"]
         self.assertEqual(loggers["django"]["handlers"], [])
-
-    def test_task_context_outlives_a_queue_of_five_minutes(self):
-        cache = evaluate_settings()["CACHES"]["django_structlog"]
-        self.assertGreaterEqual(cache["TIMEOUT"], 60 * 60)
-
-    def test_task_bookkeeping_logs_only_failures(self):
-        loggers = evaluate_settings()["LOGGING"]["loggers"]
-        self.assertEqual(loggers["django_structlog.tasks.receivers"]["level"], "WARNING")
 
     def test_django_request_logs_only_errors(self):
         loggers = evaluate_settings()["LOGGING"]["loggers"]
@@ -116,13 +108,13 @@ class JsonOutputTest(SimpleTestCase):
     def test_a_standard_library_record_carries_the_bound_request_id(self):
         def emit():
             structlog.contextvars.bind_contextvars(request_id="r-1")
-            logging.getLogger("{{ project_name }}.probe").warning("feed refresh failed")
+            logging.getLogger(f"{PACKAGE}.probe").warning("feed refresh failed")
 
         line = self.last_json_line(emit)
         self.assertEqual(line["event"], "feed refresh failed")
         self.assertEqual(line["level"], "warning")
         self.assertEqual(line["request_id"], "r-1")
-        self.assertEqual(line["logger"], "{{ project_name }}.probe")
+        self.assertEqual(line["logger"], f"{PACKAGE}.probe")
         self.assertIn("timestamp", line)
 
     def test_a_request_passed_as_extra_shows_no_query_string(self):

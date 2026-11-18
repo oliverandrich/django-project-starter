@@ -8,6 +8,7 @@ from django.core import checks
 from django.core.management import CommandError, call_command
 from django.core.management.base import SystemCheckError
 from django.test import SimpleTestCase, modify_settings, override_settings
+from tests.utils import PACKAGE
 
 
 @modify_settings(INSTALLED_APPS={"append": "tests"})
@@ -74,7 +75,7 @@ class LoggingCommandTest(SimpleTestCase):
     def test_the_logger_lives_in_the_context_meta(self):
         # click.Context declares no logger attribute; meta is its place for per-run values.
         seen = {}
-        base = import_module("{{ project_name }}.management.base")
+        base = import_module(f"{PACKAGE}.management.base")
         prepared = base._Prepared
         invoke = prepared.invoke
 

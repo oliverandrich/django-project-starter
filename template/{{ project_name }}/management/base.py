@@ -3,10 +3,10 @@
 Built on django-click rather than Django's own `BaseCommand`, so commands are written as click
 functions:
 
-    # {{ project_name }}/management/commands/import_things.py
+    # <package>/management/commands/import_things.py
     import djclick as click
 
-    from {{ project_name }}.management.base import command, pass_logger
+    from <package>.management.base import command, pass_logger
 
 
     @command()
