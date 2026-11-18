@@ -9,5 +9,6 @@ class ProjectConfig(AppConfig):
 
     def ready(self) -> None:
         import_module(f"{self.name}.scheduler_lock").install()
+        import_module(f"{self.name}.log_config").connect()
         cache = import_module(f"{self.name}.cache")
         post_migrate.connect(cache.create_cache_tables, sender=self)

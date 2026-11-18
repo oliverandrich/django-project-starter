@@ -65,6 +65,19 @@ The table is UNLOGGED: writes skip the WAL, and a crash empties it.
 Standbys do not replicate UNLOGGED tables, so read replicas cannot serve the cache.
 It holds up to 10000 entries; `CACHE_URL=db://django_cache?max_entries=N` changes that.
 
+## Logging
+
+structlog formats every record, through django-structlog and `<package>/log_config.py`.
+`LOG_FORMAT` is `json` or `console`; the default is `console` in `DEBUG` and `json` otherwise.
+`LOG_LEVEL` defaults to `INFO`.
+JSON output is one object per line on stderr, with `request_id` and `user_id` bound per request.
+There is no access log: request start, 2xx and 3xx log at `DEBUG`, 4xx at `WARNING`, 5xx at `ERROR`.
+A request line holds only the method and the path, without query string, user agent or client address.
+`log_config.request_without_query` applies the same to request objects from Django's own loggers.
+Tasks log only failures; a task's records carry the `request_id` of the request that enqueued it.
+That hand-over uses the second database cache, `django_structlog`.
+Management commands keep their own log files under `logs/`.
+
 ## Frontend
 
 Pages are rendered on the server.

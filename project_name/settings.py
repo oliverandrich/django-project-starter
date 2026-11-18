@@ -7,10 +7,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import logging
+from importlib import import_module
 from pathlib import Path
 
+import structlog
 from django.utils.translation import gettext_lazy as _
-from environs import Env
+from environs import Env, validate
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -62,6 +65,7 @@ INSTALLED_APPS += [
     "django_tasks_db",
     "crontask",
     "django_pg_sse",
+    "django_structlog",
 ]
 
 # Our apps
@@ -78,6 +82,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # After AuthenticationMiddleware, so request lines carry the user id.
+    "{{ project_name }}.log_config.RequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
@@ -214,6 +220,14 @@ vars().update(EMAIL_CONFIG)
 # Django's DatabaseCache in PostgreSQL. `migrate` creates its UNLOGGED table.
 CACHES = {
     "default": env.dj_cache_url("CACHE_URL", default="db://django_cache?max_entries=10000"),
+    # django-structlog hands a request's log context to the task it enqueues through this cache.
+    "django_structlog": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_structlog_cache",
+        # A task that starts later than the default 300 seconds would lose its request_id.
+        "TIMEOUT": 60 * 60 * 24,
+        "OPTIONS": {"MAX_ENTRIES": 10000},
+    },
 }
 
 # Tasks
@@ -242,3 +256,45 @@ TAILWIND_CLI_USE_DAISY_UI = True
 # django-rich output, with a staticfiles storage that needs no collectstatic run
 # https://pypi.org/project/django-rich/
 TEST_RUNNER = "{{ project_name }}.test_runner.TestRunner"
+
+# Logging through structlog and django-structlog
+# https://django-structlog.readthedocs.io/
+# One JSON object per line outside DEBUG. log_config.py keeps request lines free of query
+# strings and user agents; no client address is logged.
+log_config = import_module("{{ project_name }}.log_config")
+log_config.configure()
+LOG_FORMAT = env.str(
+    "LOG_FORMAT",
+    default="console" if DEBUG else "json",
+    validate=validate.OneOf(["json", "console"]),
+)
+LOG_LEVEL = env.log_level("LOG_LEVEL", default=logging.INFO)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": log_config.formatter(structlog.processors.JSONRenderer()),
+        "console": log_config.formatter(structlog.dev.ConsoleRenderer()),
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": LOG_FORMAT},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        # Django's own console handler would print every django.* record a second time in DEBUG.
+        "django": {"handlers": [], "level": "INFO"},
+        # task_enqueued, task_started and task_succeeded on every task are noise; failures remain.
+        "django_structlog.tasks.receivers": {"level": "WARNING"},
+        # django-structlog logs every 4xx already; 5xx stay here with their traceback.
+        "django.request": {"level": "ERROR"},
+    },
+}
+DJANGO_STRUCTLOG_IP_LOGGING_ENABLED = False
+# Covers request start, 2xx and 3xx. 4xx and 5xx keep WARNING and ERROR.
+DJANGO_STRUCTLOG_STATUS_DEFAULT_LOG_LEVEL = logging.DEBUG
+# A server-sent event stream ends when the browser leaves, which cancels its response.
+DJANGO_STRUCTLOG_REQUEST_CANCELLED_LOG_LEVEL = logging.DEBUG
+DJANGO_STRUCTLOG_DJANGO_TASKS_ENABLED = True

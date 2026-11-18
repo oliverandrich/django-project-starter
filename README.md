@@ -26,6 +26,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - htmx 4 with its hx-sse extension, vendored in `assets/vendor/htmx` and updated with `mise run update-htmx <version>`.
 - Live updates through [django-pg-sse](https://github.com/oliverandrich/django-pg-sse): `broadcast()` pushes HTML to an SSE endpoint over PostgreSQL LISTEN/NOTIFY, with replay after a reconnect.
 - Background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them in PostgreSQL, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. An advisory lock keeps a second scheduler from running.
+- JSON logs through [django-structlog](https://github.com/jrobichaud/django-structlog), with a request id and without an access log, query strings or client addresses.
 - `/health` and `/health/ready` for container health checks, answered before `ALLOWED_HOSTS`.
 - A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
 
