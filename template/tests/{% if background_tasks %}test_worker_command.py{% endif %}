@@ -7,8 +7,9 @@ from unittest import mock
 
 from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
+from tests.utils import PACKAGE
 
-worker = import_module("{{ project_name }}.management.commands.worker")
+worker = import_module(f"{PACKAGE}.management.commands.worker")
 
 IMMEDIATE = {"default": {"BACKEND": "django.tasks.backends.immediate.ImmediateBackend"}}
 DATABASE = {"default": {"BACKEND": "django_tasks_db.DatabaseBackend"}}

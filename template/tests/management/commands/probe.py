@@ -5,9 +5,10 @@ from importlib import import_module
 import djclick as click
 from django.core.management import CommandError
 from djclick.adapter import register_on_context
+from tests.utils import PACKAGE
 
 # A string, so the template repository stays valid Python before startproject renders it.
-base = import_module("{{ project_name }}.management.base")
+base = import_module(f"{PACKAGE}.management.base")
 command, pass_logger = base.command, base.pass_logger
 
 

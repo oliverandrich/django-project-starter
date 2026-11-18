@@ -5,9 +5,9 @@ from django.core.cache import cache
 from django.db import connection
 from django.test import SimpleTestCase, TestCase
 
-from tests.utils import evaluate_settings
+from tests.utils import PACKAGE, evaluate_settings
 
-cache_module = import_module("{{ project_name }}.cache")
+cache_module = import_module(f"{PACKAGE}.cache")
 
 
 class CacheSettingTest(SimpleTestCase):

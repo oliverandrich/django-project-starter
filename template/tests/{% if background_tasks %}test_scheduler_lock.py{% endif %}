@@ -7,8 +7,9 @@ from crontask import utils
 from django.core.management import call_command
 from django.db import connection
 from django.test import SimpleTestCase, override_settings
+from tests.utils import PACKAGE
 
-scheduler_lock = import_module("{{ project_name }}.scheduler_lock")
+scheduler_lock = import_module(f"{PACKAGE}.scheduler_lock")
 PostgresLock = scheduler_lock.PostgresLock
 
 

@@ -15,13 +15,25 @@ from django_pg_sse.models import StreamEvent
 from django_tasks_db.models import DBTaskResult
 from model_bakery import baker
 
-from tests.utils import evaluate_settings
+from tests.utils import PACKAGE, evaluate_settings
 
-prune_task_results = import_module("{{ project_name }}.tasks").prune_task_results
-suite_settings = import_module("{{ project_name }}.test_runner").suite_settings
+prune_task_results = import_module(f"{PACKAGE}.tasks").prune_task_results
+suite_settings = import_module(f"{PACKAGE}.test_runner").suite_settings
 
 IMMEDIATE = "django.tasks.backends.immediate.ImmediateBackend"
 DATABASE = "django_tasks_db.DatabaseBackend"
+
+
+class TaskLoggingTest(SimpleTestCase):
+    """django-structlog's hand-over of the request context to the tasks a request enqueues."""
+
+    def test_task_context_outlives_a_queue_of_five_minutes(self):
+        cache = evaluate_settings()["CACHES"]["django_structlog"]
+        self.assertGreaterEqual(cache["TIMEOUT"], 60 * 60)
+
+    def test_task_bookkeeping_logs_only_failures(self):
+        loggers = evaluate_settings()["LOGGING"]["loggers"]
+        self.assertEqual(loggers["django_structlog.tasks.receivers"]["level"], "WARNING")
 
 
 class TasksSettingTest(SimpleTestCase):
@@ -70,7 +82,7 @@ class PruneTaskResultsTest(TestCase):
 {% if live_updates %}
 
 
-prune_stream_events = import_module("{{ project_name }}.tasks").prune_stream_events
+prune_stream_events = import_module(f"{PACKAGE}.tasks").prune_stream_events
 
 
 @override_settings(PG_SSE={**settings.PG_SSE, "RETENTION_HOURS": 24})

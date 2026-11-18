@@ -26,14 +26,15 @@ Run everything through mise. It pins Python and uv, and loads `.env`.
 ```bash
 mise run bootstrap       # first setup: .env, dependencies, CSS, git, pre-commit hook
 mise run upgrade         # upgrade all dependencies
-mise run debugserver     # granian (ASGI), Tailwind, worker and scheduler; Ctrl-C stops all
-mise run runserver       # WSGI dev server with Tailwind; use it for breakpoint()
+{% endraw %}{% if background_tasks %}{% raw %}mise run debugserver     # granian (ASGI), Tailwind, worker and scheduler; Ctrl-C stops all
+{% endraw %}{% else %}{% raw %}mise run debugserver     # granian (ASGI) and Tailwind; Ctrl-C stops both
+{% endraw %}{% endif %}{% raw %}mise run runserver       # WSGI dev server with Tailwind; use it for breakpoint()
 mise run migrate
 mise run makemigrations
 mise run shell           # shell_plus
-mise run worker          # run queued tasks (database task backend only)
+{% endraw %}{% if background_tasks %}{% raw %}mise run worker          # run queued tasks (database task backend only)
 mise run scheduler       # enqueue @cron tasks on their schedule
-mise run manage <args>   # any other manage.py command
+{% endraw %}{% endif %}{% raw %}mise run manage <args>   # any other manage.py command
 mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade
 mise run test            # test suite with coverage
 ```
@@ -74,9 +75,9 @@ JSON output is one object per line on stderr, with `request_id` and `user_id` bo
 There is no access log: request start, 2xx and 3xx log at `DEBUG`, 4xx at `WARNING`, 5xx at `ERROR`.
 A request line holds only the method and the path, without query string, user agent or client address.
 `log_config.request_without_query` applies the same to request objects from Django's own loggers.
-Tasks log only failures; a task's records carry the `request_id` of the request that enqueued it.
+{% endraw %}{% if background_tasks %}{% raw %}Tasks log only failures; a task's records carry the `request_id` of the request that enqueued it.
 That hand-over uses the second database cache, `django_structlog`.
-Management commands keep their own log files under `logs/`.
+{% endraw %}{% endif %}{% raw %}Management commands keep their own log files under `logs/`.
 
 ## Frontend
 
@@ -121,7 +122,7 @@ def main(logger, source):
     logger.info("importing from %s", source)
 ```
 
-## Tasks
+{% endraw %}{% if background_tasks %}{% raw %}## Tasks
 
 Tasks use Django's tasks framework, `django.tasks`.
 Define them in `<package>/tasks.py` with `@task`.
@@ -138,7 +139,7 @@ The day-of-week field takes names such as `Mon`, not numbers.
 A second scheduler exits after 15 seconds.
 A transaction-pooling PgBouncer breaks the lock.
 
-{% endraw %}{% if live_updates %}{% raw %}## Live updates
+{% endraw %}{% endif %}{% if live_updates %}{% raw %}## Live updates
 
 [django-pg-sse](https://github.com/oliverandrich/django-pg-sse) pushes server-sent events over PostgreSQL LISTEN/NOTIFY.
 [Its docs](https://django-pg-sse.readthedocs.io/) cover the API, the [settings](https://django-pg-sse.readthedocs.io/en/latest/settings.html) and [deployment](https://django-pg-sse.readthedocs.io/en/latest/deployment.html).
@@ -176,8 +177,9 @@ Logging in as another user without logging out first closes nothing: Django drop
 
 Every event is stored, so a reconnecting browser receives the events it missed.
 `EVENTS_RETENTION_HOURS` (default 24) sets how far back that reaches.
-The `@cron` task `prune_stream_events` in `<package>/tasks.py` deletes older events hourly.
-A page can show an element before its stream delivers the same event, such as after the hub reconnects.
+{% endraw %}{% if background_tasks %}{% raw %}The `@cron` task `prune_stream_events` in `<package>/tasks.py` deletes older events hourly.
+{% endraw %}{% else %}{% raw %}Run `manage.py prune_stream_events` hourly, such as from cron, to delete older events.
+{% endraw %}{% endif %}{% raw %}A page can show an element before its stream delivers the same event, such as after the hub reconnects.
 htmx 4 appends with `beforeend` without comparing ids, so guard the target:
 `hx-swap-oob='beforeend target:"#messages:not(:has(> #message-7))"'`.
 Each granian worker holds up to 2 + `PG_SSE["STREAM_CONNECTIONS"]` (default 4) connections for the streams.
@@ -207,15 +209,16 @@ granian waits for open responses when it stops, and a server-sent event stream s
 Every open stream is one request, and granian handles `GRANIAN_BACKPRESSURE` requests per worker at once.
 granian's default is its backlog of 1024 divided by the workers.
 `manage.py serve` sets 8192 per worker instead; `GRANIAN_BACKPRESSURE` overrides it.
-The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
+{% endraw %}{% if background_tasks %}{% raw %}The arguments `worker` and `scheduler` start the task worker and the scheduler from the same image.
 Only the web process migrates, so start the others after it.
-`SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.
+{% endraw %}{% endif %}{% raw %}`SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.
 
 `GET /health` answers `{"status": "ok"}` without touching the database.
 `GET /health/ready` also checks the database and the cache, and answers 503 when one fails.
 `<package>/health.py` answers both before host validation, the HTTPS redirect, sessions and CSRF.
 A health check on the loopback therefore passes without an entry in `ALLOWED_HOSTS`.
-The image sets no `HEALTHCHECK`, because the worker and the scheduler serve no HTTP.
+{% endraw %}{% if background_tasks %}{% raw %}The image sets no `HEALTHCHECK`, because the worker and the scheduler serve no HTTP.
 Set it on the web container only, for example:
-`python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"`.
+{% endraw %}{% else %}{% raw %}The image sets no `HEALTHCHECK`. Set it on the container, for example:
+{% endraw %}{% endif %}{% raw %}`python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"`.
 {% endraw %}

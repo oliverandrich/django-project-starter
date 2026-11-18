@@ -4,3 +4,8 @@ target-version = "py314"
 
 [lint]
 select = ["A", "B", "C4", "E", "F", "N", "Q", "TID", "UP", "W"]
+
+# The package directory is named after the Copier question; braces are glob syntax here.
+[lint.per-file-ignores]
+"template/*/**/__init__.py" = ["N999"]
+"template/*/__init__.py" = ["N999"]

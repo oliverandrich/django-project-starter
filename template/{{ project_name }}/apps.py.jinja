@@ -5,10 +5,13 @@ from django.db.models.signals import post_migrate
 
 
 class ProjectConfig(AppConfig):
-    name = "{{ project_name }}"
+    # The package this module lives in, whatever the project is called.
+    name = __name__.rpartition(".")[0]
 
     def ready(self) -> None:
+{% if background_tasks %}
         import_module(f"{self.name}.scheduler_lock").install()
+{% endif %}
         log_config = import_module(f"{self.name}.log_config")
         # Here, not in settings: evaluating the settings again would replace the processor list
         # that cached loggers hold.

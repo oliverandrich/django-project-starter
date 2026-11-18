@@ -11,8 +11,7 @@ from django.core.management import call_command
 from django.tasks import DEFAULT_TASK_BACKEND_ALIAS, task_backends
 from django_tasks_db import DatabaseBackend
 
-# A string, so the template repository stays valid Python before startproject renders it.
-base = import_module("{{ project_name }}.management.base")
+base = import_module("..base", __package__)
 
 
 @base.command()

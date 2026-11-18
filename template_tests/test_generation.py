@@ -12,7 +12,6 @@ import pytest
 from conftest import REPO_ROOT
 
 PLACEHOLDER = "{{ project" + "_name }}"
-TEMPLATE = REPO_ROOT / "template"
 
 # mise's config. test_file_tasks_stay_executable covers the file tasks it references.
 MISE_FILES = ("mise.toml",)
@@ -124,10 +123,11 @@ def test_every_rendered_file_loses_its_placeholder_and_suffix(generate, template
     assert offenders == []
 
 
+@pytest.mark.parametrize("background_tasks", [True, False])
 @pytest.mark.parametrize("live_updates", [True, False])
-def test_every_generated_python_file_parses(generate, live_updates):
+def test_every_generated_python_file_parses(generate, live_updates, background_tasks):
     """A conditional that renders into an invalid position would pass every other test here."""
-    project = generate("acme_shop", live_updates=live_updates)
+    project = generate("acme_shop", live_updates=live_updates, background_tasks=background_tasks)
 
     checked, broken = 0, []
     for path in sorted(project.rglob("*.py")):
@@ -147,9 +147,11 @@ def test_package_directory_is_renamed(generate):
     assert not (project / PLACEHOLDER).exists()
 
 
-def test_mise_toml_carries_no_placeholder():
+@pytest.mark.parametrize("background_tasks", [True, False])
+def test_mise_toml_carries_no_placeholder(generate, background_tasks):
     """mise renders its own config as Tera, which spells interpolation with doubled braces too."""
-    for config in (REPO_ROOT / "mise.toml", TEMPLATE / "mise.toml"):
+    project = generate(background_tasks=background_tasks)
+    for config in (REPO_ROOT / "mise.toml", project / "mise.toml"):
         assert "{" + "{" not in config.read_text()
 
 
@@ -279,13 +281,13 @@ def test_entrypoint_starts_each_process(generate, tmp_path_factory):
     assert other.stdout.splitlines() == ["python manage.py createsuperuser"]
 
 
-def test_dockerfile_runs_the_entrypoint_unbuffered():
+def test_dockerfile_runs_the_entrypoint_unbuffered(generate):
     """No docker build runs here, so the Dockerfile lines themselves are checked.
 
     With CMD alone, `docker run <image> worker` would replace the script instead of naming it.
     Without a tty, Python buffers stdout, and container logs would show output only at exit.
     """
-    dockerfile = (TEMPLATE / "docker/Dockerfile").read_text()
+    dockerfile = (generate() / "docker/Dockerfile").read_text()
     assert 'ENTRYPOINT ["docker/entrypoint.sh"]' in dockerfile
     assert 'CMD ["web"]' in dockerfile
     assert "ENV PYTHONUNBUFFERED=1" in dockerfile
@@ -297,6 +299,13 @@ def test_debugserver_runs_server_tailwind_worker_and_scheduler(generate):
     """mise runs the dependencies in parallel, and Ctrl-C stops all of them."""
     tasks = {task["name"]: task for task in _mise_tasks(generate())}
     assert sorted(tasks["debugserver"]["depends"]) == ["scheduler", "serve", "tailwind", "worker"]
+
+
+def test_without_background_tasks_debugserver_runs_server_and_tailwind(generate):
+    tasks = {task["name"]: task for task in _mise_tasks(generate(background_tasks=False))}
+    assert sorted(tasks["debugserver"]["depends"]) == ["serve", "tailwind"]
+    assert "worker" not in tasks
+    assert "scheduler" not in tasks
 
 
 def test_mise_disables_output_buffering(generate):
@@ -319,6 +328,30 @@ def test_answers_file_records_the_choices(generate):
     answers = (generate("acme_shop", live_updates=False) / ".copier-answers.yml").read_text()
     assert "project_name: acme_shop" in answers.splitlines()
     assert "live_updates: false" in answers.splitlines()
+
+
+def test_without_background_tasks_nothing_names_them(generate):
+    project = generate("acme_shop", background_tasks=False)
+    offenders = [
+        str(path.relative_to(project))
+        for path in project.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".toml", ".md", ".yml", ".sh"}
+        and re.search(
+            r"django_tasks_db|django-tasks-db|crontask|db_worker|scheduler_lock", path.read_text()
+        )
+    ]
+    assert offenders == []
+    assert not (project / "acme_shop" / "tasks.py").exists()
+    entrypoint = (project / "docker/entrypoint.sh").read_text()
+    assert "worker)" not in entrypoint
+    assert "scheduler)" not in entrypoint
+
+
+def test_live_updates_without_background_tasks_documents_the_pruning(generate):
+    """Without a scheduler, nothing deletes old events unless the project runs the command."""
+    project = generate("acme_shop", background_tasks=False)
+    assert "manage.py prune_stream_events" in (project / "AGENTS.md").read_text()
 
 
 def test_without_live_updates_nothing_names_django_pg_sse(generate):

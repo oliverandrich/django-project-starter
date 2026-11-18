@@ -8,5 +8,5 @@ uv = "latest"
 includes = ["template_tests/tasks"]
 
 [tasks.lint]
-description = "Lint the template's own tests"
-run = ["uvx ruff check template_tests", "uvx ruff format --check template_tests"]
+description = "Lint the template tests and the plain Python files under template/"
+run = ["uvx ruff check template_tests template", "uvx ruff format --check template_tests template"]

@@ -62,8 +62,10 @@ INSTALLED_APPS += [
     "django_htmx",
     "django_tailwind_cli",
     "django_extensions",
+{% if background_tasks %}
     "django_tasks_db",
     "crontask",
+{% endif %}
 {% if live_updates %}
     "django_pg_sse",
 {% endif %}
@@ -222,6 +224,7 @@ vars().update(EMAIL_CONFIG)
 # Django's DatabaseCache in PostgreSQL. `migrate` creates its UNLOGGED table.
 CACHES = {
     "default": env.dj_cache_url("CACHE_URL", default="db://django_cache?max_entries=10000"),
+{% if background_tasks %}
     # django-structlog hands a request's log context to the task it enqueues through this cache.
     "django_structlog": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
@@ -230,8 +233,10 @@ CACHES = {
         "TIMEOUT": 60 * 60 * 24,
         "OPTIONS": {"MAX_ENTRIES": 10000},
     },
+{% endif %}
 }
 
+{% if background_tasks %}
 # Tasks
 # https://docs.djangoproject.com/en/6.1/topics/tasks/
 # The database backend queues tasks for `manage.py db_worker`.
@@ -241,6 +246,7 @@ TASKS = {
         "BACKEND": env.str("TASKS_BACKEND", default="django_tasks_db.DatabaseBackend"),
     },
 }
+{% endif %}
 
 {% if live_updates -%}
 # Server-sent events through django-pg-sse
@@ -289,8 +295,10 @@ LOGGING = {
     "loggers": {
         # Django's own console handler would print every django.* record a second time in DEBUG.
         "django": {"handlers": [], "level": "INFO"},
+{% if background_tasks %}
         # task_enqueued, task_started and task_succeeded on every task are noise; failures remain.
         "django_structlog.tasks.receivers": {"level": "WARNING"},
+{% endif %}
         # django-structlog logs every 4xx already; 5xx stay here with their traceback.
         "django.request": {"level": "ERROR"},
     },
@@ -300,4 +308,6 @@ DJANGO_STRUCTLOG_IP_LOGGING_ENABLED = False
 DJANGO_STRUCTLOG_STATUS_DEFAULT_LOG_LEVEL = logging.DEBUG
 # A server-sent event stream ends when the browser leaves, which cancels its response.
 DJANGO_STRUCTLOG_REQUEST_CANCELLED_LOG_LEVEL = logging.DEBUG
+{% if background_tasks %}
 DJANGO_STRUCTLOG_DJANGO_TASKS_ENABLED = True
+{% endif %}

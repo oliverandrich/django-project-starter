@@ -4,9 +4,9 @@ from pathlib import Path
 from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
 
-from tests.utils import evaluate_settings
+from tests.utils import PACKAGE, evaluate_settings
 
-STORAGE = "{{ project_name }}.storage.HashedStaticFilesStorage"
+STORAGE = f"{PACKAGE}.storage.HashedStaticFilesStorage"
 
 
 class HashedStaticFilesStorageTest(SimpleTestCase):
