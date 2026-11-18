@@ -62,6 +62,14 @@ class LoggingSettingTest(SimpleTestCase):
 
 
 class RequestLoggingTest(TestCase):
+    def test_capture_logs_sees_requests_after_the_settings_ran_again(self):
+        # The first request caches django-structlog's logger with the processor list of that time.
+        self.client.get("/missing/")
+        evaluate_settings()
+        with capture_logs() as logs:
+            self.client.get("/missing/")
+        self.assertIn("request_finished", [log["event"] for log in logs])
+
     def test_successful_requests_leave_no_line_at_info(self):
         with capture_logs() as logs:
             self.client.get("/health/other")  # a 404 to compare with below

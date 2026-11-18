@@ -262,7 +262,6 @@ TEST_RUNNER = "{{ project_name }}.test_runner.TestRunner"
 # One JSON object per line outside DEBUG. log_config.py keeps request lines free of query
 # strings and user agents; no client address is logged.
 log_config = import_module("{{ project_name }}.log_config")
-log_config.configure()
 LOG_FORMAT = env.str(
     "LOG_FORMAT",
     default="console" if DEBUG else "json",
