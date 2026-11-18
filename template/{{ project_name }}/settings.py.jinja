@@ -356,6 +356,8 @@ LOGGING = {
 {% if background_tasks %}
         # task_enqueued, task_started and task_succeeded on every task are noise; failures remain.
         "django_structlog.tasks.receivers": {"level": "WARNING"},
+        # django-crontask extends its scheduler lock every few seconds through APScheduler.
+        "apscheduler": {"level": "WARNING"},
 {% endif %}
         # django-structlog logs every 4xx already; 5xx stay here with their traceback.
         "django.request": {"level": "ERROR"},
