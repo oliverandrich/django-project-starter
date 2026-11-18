@@ -89,11 +89,12 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # After AuthenticationMiddleware, so request lines carry the user id. Before CommonMiddleware,
+    # so they show the response that goes out, such as the APPEND_SLASH redirect of a 404.
+    "{{ project_name }}.log_config.RequestMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    # After AuthenticationMiddleware, so request lines carry the user id.
-    "{{ project_name }}.log_config.RequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",

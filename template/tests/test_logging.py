@@ -62,6 +62,14 @@ class RequestLoggingTest(TestCase):
             self.client.get("/missing/")
         self.assertIn("request_finished", [log["event"] for log in logs])
 
+    def test_the_line_shows_the_redirect_that_goes_out(self):
+        # CommonMiddleware turns the 404 of /admin into a 301 to /admin/ under APPEND_SLASH.
+        with capture_logs() as logs:
+            response = self.client.get("/admin")
+        self.assertEqual(response.status_code, 301)
+        finished = [log for log in logs if log["event"] == "request_finished"]
+        self.assertEqual([log["code"] for log in finished], [301])
+
     def test_successful_requests_leave_no_line_at_info(self):
         with capture_logs() as logs:
             self.client.get("/health/other")  # a 404 to compare with below
