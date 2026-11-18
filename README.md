@@ -46,12 +46,8 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 ## Install
 
 ```shell
-# Pull the template from GitHub
-$ uv run --with=django django-admin startproject \
-    --extension=ini,py,toml,sh \
-    --exclude=template_tests \
-    --template=https://github.com/oliverandrich/django-project-starter/archive/refs/heads/main.zip \
-    example_project
+# Answer the questions: the package name, and whether to include live updates
+$ uvx copier copy --trust gh:oliverandrich/django-project-starter example_project
 
 $ cd example_project
 $ mise trust          # once, so mise reads mise.toml
@@ -59,16 +55,13 @@ $ mise run bootstrap  # .env, dependencies, database, first CSS build, git, pre-
 $ mise run debugserver
 ```
 
-`--exclude` is not optional, and its effect is indirect. Django drops **every** directory whose
-name starts with a dot unless the flag is passed *at all* — so without it `.mise/` never arrives
-and the generated project carries a `mise.toml` pointing at file tasks that were never copied.
-Passing it switches Django to the explicit list, and `template_tests` is what belongs on that
-list: the published archive is `git archive` output, so it holds tracked files and nothing else.
+`--data live_updates=false` leaves out django-pg-sse, its settings, URL, task and tests.
 
-Generating from a local checkout instead of the URL is different — a virtualenv and tool caches
-are sitting on disk there, and git-ignored files are not filtered out by anything. Add
-`--exclude=.venv --exclude=.idea --exclude=.claude --exclude=.pytest_cache --exclude=.ruff_cache`
-in that case, or generate from the URL and avoid the question.
+## Update
+
+`.copier-answers.yml` records the template version and the answers.
+`uvx copier update` merges later changes of the template into the project.
+Run it on a clean working tree; conflicts show up as `.rej` files or conflict markers.
 
 ## Usage
 

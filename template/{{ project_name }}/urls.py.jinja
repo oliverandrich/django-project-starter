@@ -16,7 +16,9 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="base.html")),
     # Admin area
     path("admin/", admin.site.urls),
+{% if live_updates %}
     path("events/", include("django_pg_sse.urls")),
+{% endif %}
     # Django browser reload
     path("__reload__/", include("django_browser_reload.urls")),
 ]

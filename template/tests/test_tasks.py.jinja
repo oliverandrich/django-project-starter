@@ -2,12 +2,16 @@ from datetime import timedelta
 from importlib import import_module
 
 from crontask import scheduler
+{% if live_updates %}
 from django.conf import settings
+{% endif %}
 from django.tasks import TaskResultStatus, task_backends
 from django.tasks.backends.immediate import ImmediateBackend
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
+{% if live_updates %}
 from django_pg_sse.models import StreamEvent
+{% endif %}
 from django_tasks_db.models import DBTaskResult
 from model_bakery import baker
 
@@ -63,6 +67,7 @@ class PruneTaskResultsTest(TestCase):
     def test_runs_daily(self):
         names = [job.name for job in scheduler.get_jobs()]
         self.assertIn(prune_task_results.name, names)
+{% if live_updates %}
 
 
 prune_stream_events = import_module("{{ project_name }}.tasks").prune_stream_events
@@ -85,3 +90,4 @@ class PruneStreamEventsTest(TestCase):
 
     def test_runs_hourly(self):
         self.assertIn(prune_stream_events.name, [job.name for job in scheduler.get_jobs()])
+{% endif %}

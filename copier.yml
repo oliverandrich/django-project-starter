@@ -1,0 +1,23 @@
+# Copier renders only files ending in .jinja. Django templates keep their own {{ }} and {% %}.
+_templates_suffix: .jinja
+# The project lives in template/; this repository's tests, CI and docs stay behind.
+_subdirectory: template
+_min_copier_version: "9.4"
+# A line holding only a block tag such as {% if %} disappears from the output.
+_envops:
+  keep_trailing_newline: true
+  trim_blocks: true
+  lstrip_blocks: true
+
+project_name:
+  type: str
+  help: Python package name of the project, such as acme_shop
+  validator: >-
+    {% if not (project_name | regex_search('^[a-z][a-z0-9_]*$')) %}
+    Use lowercase letters, digits and underscores, starting with a letter.
+    {% endif %}
+
+live_updates:
+  type: bool
+  help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?
+  default: true

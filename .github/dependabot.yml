@@ -1,16 +1,15 @@
-# The template repository's own updates. Bootstrap replaces this file with dependabot.project.yml.
-# No uv entry: uv cannot read the placeholder project name in pyproject.toml.
+# The template's own updates. No uv entry: uv cannot read the rendered pyproject.toml.jinja.
 version: 2
 updates:
   - package-ecosystem: pre-commit
-    directory: /
+    directory: /template
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
-    directory: /
+    directories: [/, /template]
     schedule:
       interval: weekly
   - package-ecosystem: docker
-    directory: /docker
+    directory: /template/docker
     schedule:
       interval: weekly

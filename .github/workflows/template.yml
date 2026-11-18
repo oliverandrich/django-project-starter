@@ -1,7 +1,6 @@
 name: Template
 
-# Tests this template repository. It ships with every generated project, where
-# `mise run bootstrap` deletes it; the repository guard covers projects never bootstrapped.
+# Tests this template repository. It stays outside template/, so no project receives it.
 
 on:
   push:
@@ -17,7 +16,6 @@ permissions:
 
 jobs:
   generation:
-    if: github.repository == 'oliverandrich/django-project-starter'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -26,8 +24,11 @@ jobs:
         run: mise run test-template
 
   generated-project:
-    if: github.repository == 'oliverandrich/django-project-starter'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        live_updates: [true, false]
     services:
       postgres:
         image: postgres:18
@@ -63,23 +64,20 @@ jobs:
           path: |
             ~/.cache/uv
             ~/.cache/pre-commit
-          key: generated-${{ hashFiles('template/pyproject.toml', 'template/.pre-commit-config.yaml') }}
+          key: generated-${{ hashFiles('template/template/pyproject.toml.jinja', 'template/template/.pre-commit-config.yaml') }}
       # Run inside the template, whose mise.toml resolves the python shim.
       - name: Generate a project from this checkout
         working-directory: template
         run: >-
-          mkdir ../acme_shop &&
-          uv run --no-project --with=django django-admin startproject
-          --extension=ini,py,toml,sh --exclude=template_tests
-          --template=. acme_shop ../acme_shop
+          uvx copier copy --defaults --vcs-ref HEAD
+          --data project_name=acme_shop --data live_updates=${{ matrix.live_updates }}
+          . ../acme_shop
       - name: Bootstrap
         run: |
           git config --global user.name "CI"
           git config --global user.email "ci@example.com"
           git config --global init.defaultBranch main
           mise run bootstrap
-          test ! -e .github/workflows/template.yml
-          test -z "$(git ls-files '*.project.*')"
           rm .env
       - name: Lint
         run: mise run lint

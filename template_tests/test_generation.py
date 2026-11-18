@@ -1,4 +1,4 @@
-"""What `django-admin startproject` must produce from this template."""
+"""What `copier copy` must produce from this template."""
 
 import ast
 import functools
@@ -8,27 +8,25 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
 from conftest import REPO_ROOT
 
-PLACEHOLDER = "{{ project" + "_name }}"  # split so this file is not itself a template
+PLACEHOLDER = "{{ project" + "_name }}"
+TEMPLATE = REPO_ROOT / "template"
 
 # mise's config. test_file_tasks_stay_executable covers the file tasks it references.
 MISE_FILES = ("mise.toml",)
 
 # The generated project's GitHub setup. .github is a dot-directory, so it needs --exclude too.
 CI_WORKFLOW = ".github/workflows/ci.yml"
-PROJECT_DEPENDABOT = ".github/dependabot.project.yml"
-GITHUB_FILES = (CI_WORKFLOW, PROJECT_DEPENDABOT)
+GITHUB_FILES = (CI_WORKFLOW, ".github/dependabot.yml")
 UV_UPDATES = "package-ecosystem: uv"
 
-# Agent instructions. Bootstrap renames CLAUDE.project.md to CLAUDE.md, which imports AGENTS.md.
-AGENT_FILES = ("AGENTS.md", "CLAUDE.project.md")
+# Agent instructions. CLAUDE.md imports AGENTS.md.
+AGENT_FILES = ("AGENTS.md", "CLAUDE.md")
 
-# The template repository's own CI. It ships with every project, and bootstrap removes it.
-TEMPLATE_WORKFLOW = ".github/workflows/template.yml"
-
-# README.md and CLAUDE.md keep the placeholder on purpose — they document it.
-PLACEHOLDER_IS_DOCUMENTED = {"README.md", "CLAUDE.md"}
+# The repository's own files, outside template/.
+REPOSITORY_FILES = ("template_tests", "copier.yml", ".github/workflows/template.yml")
 
 # `mise run <task>` as the docs spell it, in a shell block or inline in backticks.
 DOCUMENTED_TASK = re.compile(r"mise run ([a-z][a-z0-9-]*)")
@@ -79,42 +77,21 @@ def _text_files(root: Path):
             continue
 
 
-def test_documented_command_passes_exclude(documented_argv):
-    """Without --exclude, startproject drops every dot-directory — .mise with them.
-
-    django/core/management/templates.py branches on whether the option was passed at all
-    (`if "exclude" not in options`), not on its value, so the flag has to be there.
-    """
-    assert any(arg.startswith(("-x", "--exclude")) for arg in documented_argv)
-
-
 def test_tooling_lands_in_the_generated_project(generate):
     project = generate()
-    expected = MISE_FILES + GITHUB_FILES + AGENT_FILES
+    expected = (*MISE_FILES, *GITHUB_FILES, *AGENT_FILES, ".copier-answers.yml")
     missing = [name for name in expected if not (project / name).is_file()]
     assert missing == []
 
 
-def test_dot_directories_vanish_without_exclude(generate, documented_argv, template_factory):
-    """Pins the Django behaviour the --exclude flags exist for.
-
-    If a future Django release stops dropping dot-directories, this test fails and tells us the
-    flags are no longer load-bearing — rather than the template silently depending on them.
-
-    template_tests/ is left out of the template here for the same reason the real command
-    excludes it: startproject would otherwise render these very files as Django templates.
-    """
-    argv = [arg for arg in documented_argv if not arg.startswith(("-x", "--exclude"))]
-    project = generate(argv=argv, template=template_factory(omit=("template_tests",)))
-
-    assert not (project / ".mise").exists()
-    assert (project / "mise.toml").is_file()  # a plain file, so it still arrives
-
-
-def test_template_tests_stay_behind(generate):
-    """These tests are the template's own machinery and must not ship into a project."""
+def test_repository_files_stay_behind(generate):
+    """The tests, the Copier config and the template's own CI are not part of a project."""
     project = generate()
-    assert not (project / "template_tests").exists()
+    assert [name for name in REPOSITORY_FILES if (project / name).exists()] == []
+
+
+def test_readme_documents_copier_copy():
+    assert "copier copy" in (REPO_ROOT / "README.md").read_text()
 
 
 def test_file_tasks_stay_executable(generate, template_dir):
@@ -123,48 +100,34 @@ def test_file_tasks_stay_executable(generate, template_dir):
     A file task that was not copied fails only when someone runs it, so this checks every one.
     """
     project = generate()
-    tasks = [path.relative_to(template_dir) for path in (template_dir / ".mise/tasks").iterdir()]
+    source = template_dir / "template"
+    tasks = [path.relative_to(source) for path in (source / ".mise/tasks").iterdir()]
     assert tasks, "the template has no file tasks: the test is not looking anywhere"
     not_executable = [str(task) for task in tasks if not os.access(project / task, os.X_OK)]
     assert not_executable == []
 
 
-def test_every_placeholder_in_the_template_is_substituted(generate, template_dir):
-    """Driven from the template, not from the documented command.
-
-    Asking "does any rendered file still contain a placeholder" and deriving the set of rendered
-    files from the same `--extension` flag that decides what gets rendered is circular: an
-    extension missing from the command is then also missing from the test. This asks the
-    question from the other side — every tracked file that carries the placeholder must come out
-    without it — so a file the command forgets to render shows up here.
-    """
+def test_every_rendered_file_loses_its_placeholder_and_suffix(generate, template_dir):
+    """Copier renders exactly the .jinja files and drops the suffix."""
     project = generate("acme_shop")
-
-    carriers, offenders = [], []
-    for source, content in _text_files(template_dir):
-        relative = source.relative_to(template_dir)
-        if relative.parts[0] == "template_tests" or str(relative) in PLACEHOLDER_IS_DOCUMENTED:
-            continue
-        if PLACEHOLDER not in content:
-            continue
-        carriers.append(str(relative))
-        # The package directory is renamed as part of generation.
-        parts = ["acme_shop" if part == "project_name" else part for part in relative.parts]
-        generated = project.joinpath(*parts)
-        if not generated.is_file() or PLACEHOLDER in generated.read_text():
-            offenders.append(str(relative))
-
-    assert carriers, "no template file carries the placeholder — the test is not looking anywhere"
+    source = template_dir / "template"
+    rendered = [path for path in source.rglob("*.jinja") if "_copier_conf" not in path.name]
+    assert rendered, "no .jinja files in the template: the test is not looking anywhere"
+    assert list(project.rglob("*.jinja")) == []
+    offenders = [
+        str(path.relative_to(project))
+        for path in project.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".toml", ".md"}
+        and PLACEHOLDER in path.read_text()
+    ]
     assert offenders == []
 
 
-def test_every_generated_python_file_parses(generate):
-    """The only test here that looks at the output as a program rather than as filenames.
-
-    A placeholder that renders into a syntactically invalid position would pass every other
-    assertion in this file.
-    """
-    project = generate("acme_shop")
+@pytest.mark.parametrize("live_updates", [True, False])
+def test_every_generated_python_file_parses(generate, live_updates):
+    """A conditional that renders into an invalid position would pass every other test here."""
+    project = generate("acme_shop", live_updates=live_updates)
 
     checked, broken = 0, []
     for path in sorted(project.rglob("*.py")):
@@ -181,16 +144,13 @@ def test_every_generated_python_file_parses(generate):
 def test_package_directory_is_renamed(generate):
     project = generate("acme_shop")
     assert (project / "acme_shop" / "settings.py").is_file()
-    assert not (project / "project_name").exists()
+    assert not (project / PLACEHOLDER).exists()
 
 
-def test_mise_toml_carries_no_django_placeholder():
-    """mise renders its own config as Tera, which spells interpolation with doubled braces too.
-
-    A placeholder in mise.toml would be substituted for a generated project but would break
-    `mise run` in this repository, where nothing substitutes it.
-    """
-    assert "{" + "{" not in (REPO_ROOT / "mise.toml").read_text()
+def test_mise_toml_carries_no_placeholder():
+    """mise renders its own config as Tera, which spells interpolation with doubled braces too."""
+    for config in (REPO_ROOT / "mise.toml", TEMPLATE / "mise.toml"):
+        assert "{" + "{" not in config.read_text()
 
 
 def test_no_task_points_at_something_left_out_of_the_project(generate, template_dir):
@@ -208,7 +168,7 @@ def test_no_task_points_at_something_left_out_of_the_project(generate, template_
         run = task["run"]
         command = " ".join(run) if isinstance(run, list) else str(run)
         for token in re.findall(r"[\w./-]+", command):
-            if (template_dir / token).exists() and not (project / token).exists():
+            if (template_dir / "template" / token).exists() and not (project / token).exists():
                 offenders.append(f"{task['name']}: {token}")
 
     assert offenders == []
@@ -230,13 +190,13 @@ def test_every_documented_command_is_a_real_task(generate):
 
     missing, documented = [], 0
     for document, root, where in (
-        ("README.md", project, "a generated project"),
-        (CI_WORKFLOW, project, "a generated project"),
-        ("AGENTS.md", project, "a generated project"),
-        ("CLAUDE.md", REPO_ROOT, "the template repository"),
+        (REPO_ROOT / "README.md", project, "a generated project"),
+        (project / CI_WORKFLOW, project, "a generated project"),
+        (project / "AGENTS.md", project, "a generated project"),
+        (REPO_ROOT / "CLAUDE.md", REPO_ROOT, "the template repository"),
     ):
         available = _task_names(root)
-        for name in sorted(set(DOCUMENTED_TASK.findall((REPO_ROOT / document).read_text()))):
+        for name in sorted(set(DOCUMENTED_TASK.findall(document.read_text()))):
             documented += 1
             if name not in available:
                 missing.append(f"{document} promises `mise run {name}`, absent in {where}")
@@ -250,23 +210,17 @@ def test_template_dependabot_skips_uv():
     assert UV_UPDATES not in (REPO_ROOT / ".github/dependabot.yml").read_text()
 
 
-def test_template_claude_md_imports_agents_md():
+def test_claude_md_imports_agents_md(generate):
     """Claude Code does not read AGENTS.md itself, so CLAUDE.md has to import it."""
-    assert "@AGENTS.md" in (REPO_ROOT / "CLAUDE.md").read_text().splitlines()
+    assert (generate() / "CLAUDE.md").read_text() == "@AGENTS.md\n"
 
 
-def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_factory):
-    """Template-only files ship with every project; bootstrap swaps in the *.project.* versions.
+def test_bootstrap_commits_the_project_and_warns_without_a_database(generate, tmp_path_factory):
+    """mise, uv and uvx are stubbed: this checks the script's logic, not the toolchain.
 
-    mise, uv and uvx are stubbed: this checks the script's logic, not the toolchain. The template
-    workflow's end-to-end job runs the real bootstrap.
+    The template workflow's end-to-end job runs the real bootstrap.
     """
     project = generate()
-    assert (project / TEMPLATE_WORKFLOW).is_file()
-    # A project file that merely looks like a template one. Bootstrap may run again later.
-    (project / "fixtures").mkdir()
-    (project / "fixtures/initial.project.json").write_text("[]")
-
     stubs = tmp_path_factory.mktemp("stubs")
     stub_bodies = {
         "mise": f'echo "{stubs}/python"',
@@ -290,16 +244,8 @@ def test_bootstrap_swaps_in_the_project_files(generate, template_dir, tmp_path_f
     committed = subprocess.run(
         ["git", "ls-files"], cwd=project, capture_output=True, text=True, check=True
     ).stdout.splitlines()
-    assert not (project / TEMPLATE_WORKFLOW).exists()
-    assert TEMPLATE_WORKFLOW not in committed
     assert CI_WORKFLOW in committed
-    # Every *.project.* file of the template, so a new one cannot slip past bootstrap's list.
-    for source in template_dir.rglob("*.project.*"):
-        swapped = str(source.relative_to(template_dir))
-        assert swapped not in committed
-        assert swapped.replace(".project.", ".") in committed
-    assert (project / "fixtures/initial.project.json").is_file()
-    assert (project / "CLAUDE.md").read_text() == "@AGENTS.md\n"
+    assert ".copier-answers.yml" in committed
     assert UV_UPDATES in (project / ".github/dependabot.yml").read_text()
     assert "uv run python manage.py createdb" in (stubs / "uv.calls").read_text().splitlines()
     assert "DATABASE_URL" in bootstrap.stdout + bootstrap.stderr
@@ -339,7 +285,7 @@ def test_dockerfile_runs_the_entrypoint_unbuffered():
     With CMD alone, `docker run <image> worker` would replace the script instead of naming it.
     Without a tty, Python buffers stdout, and container logs would show output only at exit.
     """
-    dockerfile = (REPO_ROOT / "docker/Dockerfile").read_text()
+    dockerfile = (TEMPLATE / "docker/Dockerfile").read_text()
     assert 'ENTRYPOINT ["docker/entrypoint.sh"]' in dockerfile
     assert 'CMD ["web"]' in dockerfile
     assert "ENV PYTHONUNBUFFERED=1" in dockerfile
@@ -363,15 +309,29 @@ def test_mise_disables_output_buffering(generate):
     assert json.loads(listing.stdout)["PYTHONUNBUFFERED"] == "1"
 
 
-def test_project_ci_skips_the_template_repository():
-    """The template's pyproject.toml names no valid package, so ci.yml cannot pass here."""
-    workflow = (REPO_ROOT / CI_WORKFLOW).read_text()
-    jobs_block = workflow.split("\njobs:\n", 1)[1]
-    jobs = re.split(r"^  (?=[a-z][a-z0-9-]*:$)", jobs_block, flags=re.MULTILINE)[1:]
-    guard = "\n    if: github.repository != 'oliverandrich/django-project-starter'\n"
-    assert jobs, "ci.yml defines no jobs"
-    unguarded = [job.split(":", 1)[0] for job in jobs if guard not in job]
-    assert unguarded == []
+def test_project_ci_runs_unconditionally(generate):
+    """ci.yml no longer needs a guard: this repository does not run it."""
+    assert "\n    if:" not in (generate() / CI_WORKFLOW).read_text()
+
+
+def test_answers_file_records_the_choices(generate):
+    """copier update reads the answers back, so they must survive generation."""
+    answers = (generate("acme_shop", live_updates=False) / ".copier-answers.yml").read_text()
+    assert "project_name: acme_shop" in answers.splitlines()
+    assert "live_updates: false" in answers.splitlines()
+
+
+def test_without_live_updates_nothing_names_django_pg_sse(generate):
+    project = generate("acme_shop", live_updates=False)
+    offenders = [
+        str(path.relative_to(project))
+        for path in project.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".toml", ".md", ".yml"}
+        and re.search(r"pg[_-]sse", path.read_text())
+    ]
+    assert offenders == []
+    assert not (project / "acme_shop" / "events.py").exists()
 
 
 def test_update_htmx_rejects_anything_but_a_4x_release(generate):

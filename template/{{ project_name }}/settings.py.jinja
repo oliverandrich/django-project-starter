@@ -64,7 +64,9 @@ INSTALLED_APPS += [
     "django_extensions",
     "django_tasks_db",
     "crontask",
+{% if live_updates %}
     "django_pg_sse",
+{% endif %}
     "django_structlog",
 ]
 
@@ -240,6 +242,7 @@ TASKS = {
     },
 }
 
+{% if live_updates -%}
 # Server-sent events through django-pg-sse
 # https://github.com/oliverandrich/django-pg-sse
 PG_SSE = {
@@ -249,6 +252,7 @@ PG_SSE = {
     "RETENTION_HOURS": env.int("EVENTS_RETENTION_HOURS", default=24),
 }
 
+{% endif -%}
 # django-tailwind-cli settings
 # https://django-tailwind-cli.andrich.me/settings/
 TAILWIND_CLI_USE_DAISY_UI = True
