@@ -137,6 +137,13 @@ The day-of-week field takes names such as `Mon`, not numbers.
 `mise run scheduler` enqueues each task on its schedule, in `TIME_ZONE`.
 `prune_task_results` deletes finished results older than 14 days at 03:00.
 
+`django.tasks` has no retries.
+A worker killed during a task leaves its row `RUNNING`.
+`fail_stale_tasks` runs every 15 minutes.
+It marks a row `FAILED` with `StaleTaskError` after `TASKS_STALE_AFTER_MINUTES`, default 60.
+A task still alive at that point overwrites `FAILED` when it ends.
+Keep the limit above the runtime of the longest task.
+
 `<package>/scheduler_lock.py` lets one scheduler run per database through an advisory lock.
 A second scheduler exits after 15 seconds.
 A transaction-pooling PgBouncer breaks the lock.

@@ -305,6 +305,10 @@ TASKS = {
         "BACKEND": env.str("TASKS_BACKEND", default="django_tasks_db.DatabaseBackend"),
     },
 }
+# Minutes until tasks.fail_stale_tasks marks a RUNNING task FAILED.
+TASKS_STALE_AFTER_MINUTES = env.int(
+    "TASKS_STALE_AFTER_MINUTES", default=60, validate=validate.Range(min=1)
+)
 {% endif %}
 
 {% if live_updates -%}

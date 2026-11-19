@@ -2,6 +2,7 @@ from datetime import timedelta
 from importlib import import_module
 
 from crontask import scheduler
+from environs import EnvValidationError
 {% if live_updates %}
 from django.conf import settings
 {% endif %}
@@ -17,7 +18,9 @@ from model_bakery import baker
 
 from tests.utils import PACKAGE, evaluate_settings
 
-prune_task_results = import_module(f"{PACKAGE}.tasks").prune_task_results
+project_tasks = import_module(f"{PACKAGE}.tasks")
+prune_task_results = project_tasks.prune_task_results
+fail_stale_tasks = project_tasks.fail_stale_tasks
 suite_settings = import_module(f"{PACKAGE}.test_runner").suite_settings
 
 IMMEDIATE = "django.tasks.backends.immediate.ImmediateBackend"
@@ -49,6 +52,18 @@ class TasksSettingTest(SimpleTestCase):
     def test_tasks_backend_selects_the_backend(self):
         tasks = evaluate_settings(TASKS_BACKEND=IMMEDIATE)["TASKS"]
         self.assertEqual(tasks["default"]["BACKEND"], IMMEDIATE)
+
+    def test_a_task_counts_as_stale_after_an_hour_by_default(self):
+        self.assertEqual(evaluate_settings()["TASKS_STALE_AFTER_MINUTES"], 60)
+
+    def test_tasks_stale_after_minutes_sets_the_limit(self):
+        configured = evaluate_settings(TASKS_STALE_AFTER_MINUTES="240")
+        self.assertEqual(configured["TASKS_STALE_AFTER_MINUTES"], 240)
+
+    def test_tasks_stale_after_minutes_rejects_zero(self):
+        # A limit of 0 would fail every running task.
+        with self.assertRaises(EnvValidationError):
+            evaluate_settings(TASKS_STALE_AFTER_MINUTES="0")
 
 
 class SuiteSettingsTest(SimpleTestCase):
@@ -84,6 +99,67 @@ class PruneTaskResultsTest(TestCase):
     def test_runs_daily(self):
         names = [job.name for job in scheduler.get_jobs()]
         self.assertIn(prune_task_results.name, names)
+
+
+@override_settings(TASKS={"default": {"BACKEND": DATABASE}}, TASKS_STALE_AFTER_MINUTES=60)
+class FailStaleTasksTest(TestCase):
+    def make_result(
+        self, status: TaskResultStatus, *, started: timedelta, backend: str = "default"
+    ) -> str:
+        """Enqueue a task and move it to `status`, started `started` ago."""
+        result = prune_task_results.enqueue()
+        DBTaskResult.objects.filter(id=result.id).update(
+            status=status, started_at=timezone.now() - started, backend_name=backend
+        )
+        return result.id
+
+    def status(self, result_id: str) -> str:
+        return DBTaskResult.objects.get(id=result_id).status
+
+    def test_fails_a_task_running_longer_than_the_limit(self):
+        stale = self.make_result(TaskResultStatus.RUNNING, started=timedelta(minutes=61))
+        fail_stale_tasks.call()
+        result = prune_task_results.get_result(stale)
+        self.assertEqual(result.status, TaskResultStatus.FAILED)
+        self.assertIsNotNone(result.finished_at)
+        self.assertIs(result.errors[0].exception_class, project_tasks.StaleTaskError)
+
+    def test_leaves_a_task_running_within_the_limit(self):
+        running = self.make_result(TaskResultStatus.RUNNING, started=timedelta(minutes=59))
+        fail_stale_tasks.call()
+        self.assertEqual(self.status(running), TaskResultStatus.RUNNING)
+
+    def test_leaves_tasks_that_do_not_run(self):
+        ready = prune_task_results.enqueue().id
+        done = self.make_result(TaskResultStatus.SUCCESSFUL, started=timedelta(days=1))
+        fail_stale_tasks.call()
+        self.assertEqual(self.status(ready), TaskResultStatus.READY)
+        self.assertEqual(self.status(done), TaskResultStatus.SUCCESSFUL)
+
+    @override_settings(TASKS_STALE_AFTER_MINUTES=120)
+    def test_the_limit_comes_from_the_setting(self):
+        running = self.make_result(TaskResultStatus.RUNNING, started=timedelta(minutes=90))
+        fail_stale_tasks.call()
+        self.assertEqual(self.status(running), TaskResultStatus.RUNNING)
+
+    def test_leaves_the_tasks_of_other_backends(self):
+        other = self.make_result(
+            TaskResultStatus.RUNNING, started=timedelta(minutes=61), backend="slow"
+        )
+        fail_stale_tasks.call()
+        self.assertEqual(self.status(other), TaskResultStatus.RUNNING)
+
+    def test_does_nothing_without_the_database_backend(self):
+        stale = self.make_result(TaskResultStatus.RUNNING, started=timedelta(minutes=61))
+        with self.settings(TASKS={"default": {"BACKEND": IMMEDIATE}}):
+            fail_stale_tasks.call()
+        self.assertEqual(self.status(stale), TaskResultStatus.RUNNING)
+
+    def test_runs_every_fifteen_minutes(self):
+        jobs = {job.name: job for job in scheduler.get_jobs()}
+        trigger = jobs[fail_stale_tasks.name].trigger
+        fields = {field.name: str(field) for field in trigger.fields}
+        self.assertEqual(fields["minute"], "*/15")
 {% if live_updates %}
 
 

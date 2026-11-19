@@ -27,7 +27,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - A project `User` model as `AUTH_USER_MODEL` from the first migration.
 - Optional login methods, any combination: password, Microsoft Entra ID through [django-auth-adfs](https://github.com/snok/django-auth-adfs), and single-use links by email through [django-sesame](https://github.com/aaugustin/django-sesame).
 - Optional: live updates through [django-pg-sse](https://github.com/oliverandrich/django-pg-sse): `broadcast()` pushes HTML to an SSE endpoint over PostgreSQL LISTEN/NOTIFY, with replay after a reconnect.
-- Optional: background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them in PostgreSQL, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. An advisory lock keeps a second scheduler from running.
+- Optional: background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them in PostgreSQL, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. An advisory lock keeps a second scheduler from running. A cron task marks tasks as failed that run longer than `TASKS_STALE_AFTER_MINUTES`.
 - JSON logs through [django-structlog](https://github.com/jrobichaud/django-structlog), with a request id and without an access log, query strings or client addresses.
 - `/health` and `/health/ready` for container health checks, answered before `ALLOWED_HOSTS`.
 - A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
@@ -130,6 +130,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | LANGUAGE_CODE                | "en"                                              | settings.py     |
 | SECRET_KEY                   |                                                   | settings.py     |
 | TASKS_BACKEND                | "django_tasks_db.DatabaseBackend"                 | settings.py     |
+| TASKS_STALE_AFTER_MINUTES    | 60                                                | settings.py     |
 | TIME_ZONE                    | "UTC"                                             | settings.py     |
 | GRANIAN_HOST                 | "0.0.0.0" in the image, "127.0.0.1" otherwise     | granian         |
 | GRANIAN_WORKERS              | 1                                                 | granian         |
