@@ -147,6 +147,12 @@ The image starts the web server by default. Pass `worker` or `scheduler` as the 
 the task worker or the cron scheduler from the same image. Only the web server runs migrations.
 Every process needs `DATABASE_URL` pointing at the PostgreSQL server.
 
+The worker finishes its current task on the first SIGTERM, then exits.
+Docker sends SIGKILL after 10 seconds, which leaves a longer task `RUNNING`.
+Set the worker's `stop_grace_period` in Compose above the runtime of the longest task.
+`docker run` takes `--stop-timeout` for the same purpose.
+`fail_stale_tasks` marks a task `FAILED` that stays `RUNNING` beyond `TASKS_STALE_AFTER_MINUTES`.
+
 ### Behind Caddy
 
 The image expects a reverse proxy in front. granian serves static files from `STATIC_ROOT` with
