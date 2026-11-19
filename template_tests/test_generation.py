@@ -374,6 +374,8 @@ def test_without_login_only_the_admin_logs_in(generate):
     assert offenders == []
     assert not (project / "acme_shop" / "login.py").exists()
     assert not (project / "acme_shop" / "templates" / "registration").exists()
+    catalog = (project / "acme_shop/locale/de/LC_MESSAGES/django.po").read_text()
+    assert "Log in with Microsoft" not in catalog
 
 
 def test_the_user_model_exists_without_login(generate):
