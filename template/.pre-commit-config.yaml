@@ -42,7 +42,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/adamchainz/djade-pre-commit
-    rev: "1.9.0"
+    rev: "1.10.0"
     hooks:
       - id: djade
         # 6.0, not 6.1: djade's newest known target is 6.0. Not a forgotten pin -- raise it when
