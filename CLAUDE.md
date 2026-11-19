@@ -12,6 +12,8 @@ This repository is a [Copier](https://copier.readthedocs.io/) template.
 - `copier.yml` holds the questions: `project_name`, `background_tasks`, `login` and `live_updates`.
   `login` is a multiselect; templates test it with `{% if "magic_link" in login %}`.
 - `template/` holds the generated project. Nothing outside it reaches a project.
+- `_skip_if_exists` lists files a project owns after generation, such as `README.md`.
+  `copier update` never touches them.
 - Copier renders only files ending in `.jinja` and drops the suffix. Every other file is copied
   unchanged, so Django templates keep their own `{{ }}` and `{% %}`.
 - A `.jinja` file that contains Django template syntax wraps it in `{% raw %}`, as

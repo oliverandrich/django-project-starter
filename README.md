@@ -67,6 +67,7 @@ $ mise run debugserver
 `.copier-answers.yml` records the template version and the answers.
 `uvx copier update` merges later changes of the template into the project.
 Run it on a clean working tree; conflicts show up as `.rej` files or conflict markers.
+It leaves the project's `README.md` alone.
 
 ## Usage
 

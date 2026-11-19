@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from conftest import REPO_ROOT
+from copier import run_copy
 
 PLACEHOLDER = "{{ project" + "_name }}"
 
@@ -441,3 +442,18 @@ def test_ruff_skips_migrations_named_on_the_command_line(generate):
             text=True,
         )
         assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a_second_run_leaves_the_readme_alone(generate, template_dir):
+    """The README belongs to the project once it exists; copier update must not rewrite it."""
+    project = generate("acme_shop")
+    (project / "README.md").write_text("# Acme Shop\n\nOur own description.\n")
+    run_copy(
+        str(template_dir),
+        project,
+        data={"project_name": "acme_shop"},
+        defaults=True,
+        overwrite=True,
+        quiet=True,
+    )
+    assert (project / "README.md").read_text() == "# Acme Shop\n\nOur own description.\n"
