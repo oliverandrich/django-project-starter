@@ -2,6 +2,9 @@
 _templates_suffix: .jinja
 # The project lives in template/; this repository's tests, CI and docs stay behind.
 _subdirectory: template
+# The README describes the project from its first commit on; updates leave it alone.
+_skip_if_exists:
+  - README.md
 _min_copier_version: "9.4"
 # A line holding only a block tag such as {% if %} disappears from the output.
 _envops:
