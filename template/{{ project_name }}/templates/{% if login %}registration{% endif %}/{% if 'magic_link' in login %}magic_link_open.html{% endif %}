@@ -6,15 +6,15 @@
 
 {% block card %}
     {% if invalid %}
-        <p class="text-error">{% translate "This link is invalid, expired or already used." %}</p>
-        <a class="btn" href="{% url 'login' %}">{% translate "Request a new link" %}</a>
+        <p class="text-red-600 dark:text-red-400">{% translate "This link is invalid, expired or already used." %}</p>
+        <a class="rounded-md border border-gray-300 px-4 py-2 text-center font-medium hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700" href="{% url 'login' %}">{% translate "Request a new link" %}</a>
     {% else %}
         {# A POST, not the GET of the link: mail scanners fetch links and would use the token up. #}
         <form method="post">
             {% csrf_token %}
             <input type="hidden" name="sesame" value="{{ token }}">
             <input type="hidden" name="next" value="{{ next }}">
-            <button class="btn btn-primary w-full">{% translate "Log in" %}</button>
+            <button class="cursor-pointer w-full rounded-md bg-blue-600 px-4 py-2 text-center font-medium text-white hover:bg-blue-700">{% translate "Log in" %}</button>
         </form>
     {% endif %}
 {% endblock card %}

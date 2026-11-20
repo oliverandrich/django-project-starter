@@ -6,7 +6,7 @@
 
 {% block card %}
     {% if "microsoft" in login_methods %}
-        <a class="btn btn-primary"
+        <a class="rounded-md bg-blue-600 px-4 py-2 text-center font-medium text-white hover:bg-blue-700"
            href="{% url 'django_auth_adfs:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
             {% translate "Log in with Microsoft" %}
         </a>
@@ -15,20 +15,20 @@
         <form method="post" action="{% url 'login' %}" class="flex flex-col gap-3">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ next }}">
-            {% if form.non_field_errors %}<p class="text-error">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+            {% if form.non_field_errors %}<p class="text-red-600 dark:text-red-400">{{ form.non_field_errors|join:" " }}</p>{% endif %}
             <label class="flex flex-col gap-1">
                 <span>{% translate "Username" %}</span>
-                <input class="input w-full" name="username" autocomplete="username" required>
+                <input class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-900" name="username" autocomplete="username" required>
             </label>
             <label class="flex flex-col gap-1">
                 <span>{% translate "Password" %}</span>
-                <input class="input w-full"
+                <input class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-900"
                        type="password"
                        name="password"
                        autocomplete="current-password"
                        required>
             </label>
-            <button class="btn">{% translate "Log in" %}</button>
+            <button class="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-center font-medium hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">{% translate "Log in" %}</button>
         </form>
     {% endif %}
     {% if "magic_link" in login_methods %}
@@ -37,15 +37,15 @@
             <input type="hidden" name="next" value="{{ next }}">
             <label class="flex flex-col gap-1">
                 <span>{% translate "Email address" %}</span>
-                <input class="input w-full"
+                <input class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-900"
                        type="email"
                        name="email"
                        autocomplete="email"
                        value="{{ link_form.email.value|default:'' }}"
                        required>
             </label>
-            {% if link_form.email.errors %}<p class="text-error">{{ link_form.email.errors|join:" " }}</p>{% endif %}
-            <button class="btn">{% translate "Email me a login link" %}</button>
+            {% if link_form.email.errors %}<p class="text-red-600 dark:text-red-400">{{ link_form.email.errors|join:" " }}</p>{% endif %}
+            <button class="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-center font-medium hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">{% translate "Email me a login link" %}</button>
         </form>
     {% endif %}
 {% endblock card %}

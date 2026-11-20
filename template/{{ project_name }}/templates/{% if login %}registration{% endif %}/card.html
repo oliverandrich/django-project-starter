@@ -2,9 +2,9 @@
 
 {% block content %}
     <main class="min-h-screen flex justify-center items-center p-4">
-        <div class="card bg-base-200 w-full max-w-sm">
-            <div class="card-body gap-4">
-                <h1 class="card-title text-2xl">{% block heading %}{% endblock %}</h1>
+        <div class="w-full max-w-sm rounded-xl bg-gray-100 dark:bg-gray-800">
+            <div class="flex flex-col gap-4 p-8">
+                <h1 class="text-2xl font-semibold">{% block heading %}{% endblock %}</h1>
                 {% block card %}{% endblock %}
             </div>
         </div>

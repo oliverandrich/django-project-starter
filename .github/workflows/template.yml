@@ -27,10 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every answer combination would be 32 jobs. These cover all on, all off and each part alone.
+      # Every combination would be 64 jobs. These cover all on, all off and each part but daisy_ui alone.
+      # daisy_ui runs only in the all-on row; it changes one setting and the body classes.
       matrix:
         include:
-          - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]' }
+          - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]', daisy_ui: true }
           - { live_updates: false, background_tasks: false, login: "[]", license: proprietary }
           - { live_updates: true, background_tasks: false, login: "[]" }
           - { live_updates: false, background_tasks: true, login: "[]", license: AGPL-3.0-or-later }
@@ -84,6 +85,7 @@ jobs:
           --data background_tasks=${{ matrix.background_tasks }}
           --data 'login=${{ matrix.login }}'
           ${{ matrix.license && format('--data license={0}', matrix.license) || '' }}
+          ${{ matrix.daisy_ui && '--data daisy_ui=true' || '' }}
           --data author="Jane Doe"
           . ../acme_shop
       - name: Bootstrap

@@ -324,7 +324,7 @@ PG_SSE = {
 {% endif -%}
 # django-tailwind-cli settings
 # https://django-tailwind-cli.andrich.me/settings/
-TAILWIND_CLI_USE_DAISY_UI = True
+TAILWIND_CLI_USE_DAISY_UI = {{ daisy_ui }}
 
 # django-rich output, with a staticfiles storage that needs no collectstatic run
 # https://pypi.org/project/django-rich/

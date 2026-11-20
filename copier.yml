@@ -40,6 +40,11 @@ live_updates:
   help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?
   default: true
 
+daisy_ui:
+  type: bool
+  help: daisyUI components on top of Tailwind CSS? The login pages use plain Tailwind either way.
+  default: false
+
 license:
   type: str
   help: License of the project

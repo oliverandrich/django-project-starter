@@ -502,3 +502,19 @@ def test_proprietary_project_has_no_license(generate):
     assert "license" not in pyproject
     assert "Private :: Do Not Upload" in pyproject["classifiers"]
     assert "proprietary" in _license_section(project)
+
+
+BODY_COLORS = "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
+
+
+@pytest.mark.parametrize(
+    ("answers", "daisy_ui"), [({}, False), ({"daisy_ui": False}, False), ({"daisy_ui": True}, True)]
+)
+def test_daisy_ui_answer(generate, answers, daisy_ui):
+    """Without daisyUI, base.html sets the page colors. With it, the daisyUI theme does."""
+    project = generate("acme_shop", **answers)
+    settings = (project / "acme_shop/settings.py").read_text()
+    assert f"TAILWIND_CLI_USE_DAISY_UI = {daisy_ui}\n" in settings
+    assert ("daisyUI" in (project / "AGENTS.md").read_text()) is daisy_ui
+    base = (project / "acme_shop/templates/base.html").read_text()
+    assert (BODY_COLORS in base) is not daisy_ui

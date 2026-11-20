@@ -95,8 +95,9 @@ The cookie follows the token rotation in `login()`, which a token fixed in the p
 Keep `CSRF_COOKIE_HTTPONLY` off, so the script can read the cookie.
 Every page sets that cookie, which makes responses vary on `Cookie`.
 htmx 4 swaps 4xx and 5xx responses, and requests time out after 60 seconds.
-Tailwind CSS with daisyUI comes from django-tailwind-cli, which needs no Node.js.
-`base.html` enables `hx-boost` for the whole page.
+{% endraw %}{% if daisy_ui %}{% raw %}Tailwind CSS with daisyUI comes from django-tailwind-cli, which needs no Node.js.
+{% endraw %}{% else %}{% raw %}Tailwind CSS comes from django-tailwind-cli, which needs no Node.js.
+{% endraw %}{% endif %}{% raw %}`base.html` enables `hx-boost` for the whole page.
 
 The project runs on ASGI under granian, in development and production.
 Write views as sync functions unless they wait, such as a server-sent event stream.

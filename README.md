@@ -61,6 +61,7 @@ $ mise run debugserver
 `--data background_tasks=false` leaves out django-tasks-db, django-crontask, the worker and the scheduler.
 `django.tasks` then runs each task inside `enqueue()`, Django's default.
 `--data 'login=["microsoft", "magic_link"]'` picks login methods; the default `[]` keeps only the admin login.
+`--data daisy_ui=true` turns on daisyUI; the login pages use plain Tailwind either way.
 `--data license=AGPL-3.0-or-later` picks the AGPL; the default is `MIT`.
 `--data license=proprietary` writes no LICENSE file and marks `pyproject.toml` private.
 `--data author="Jane Doe"` names the copyright holder; `copyright_year` defaults to the current year.
@@ -74,6 +75,7 @@ It leaves the project's `README.md` alone.
 On its next update, a project generated before the license question defaults to `MIT`.
 Copier then prompts for `author`; a run with `--defaults` needs `--data author=...`.
 The README's license section is written once at `copier copy` and not updated afterwards.
+`daisy_ui` defaults to `false`; a project that uses daisyUI classes answers `daisy_ui=true` on update.
 
 ## Usage
 

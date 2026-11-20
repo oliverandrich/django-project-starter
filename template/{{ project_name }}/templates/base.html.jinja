@@ -1,4 +1,4 @@
-{% load django_browser_reload django_htmx tailwind_cli %}
+{% raw %}{% load django_browser_reload django_htmx tailwind_cli %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
     <head>
@@ -21,8 +21,12 @@
         {% django_browser_reload_script %}
         {% block extra_head %}{% endblock %}
     </head>
+{% endraw %}{% if daisy_ui %}
     <body hx-boost:inherited="true">
-        {% block content %}
+{% else %}
+    <body class="bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100" hx-boost:inherited="true">
+{% endif %}
+{% raw %}        {% block content %}
             <div class="min-h-screen flex justify-center items-center">
                 <div class="text-5xl">
                     Django + Tailwind + HTMX = ❤️
@@ -32,3 +36,4 @@
         {% block extra_js %}{% endblock %}
     </body>
 </html>
+{% endraw %}

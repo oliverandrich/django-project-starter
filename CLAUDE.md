@@ -10,7 +10,7 @@ The import above describes the project this template generates. Its `<package>` 
 This repository is a [Copier](https://copier.readthedocs.io/) template.
 
 - `copier.yml` holds the questions: `project_name`, `background_tasks`, `login`, `live_updates`,
-  `license`, `author` and `copyright_year`.
+  `daisy_ui`, `license`, `author` and `copyright_year`.
   `login` is a multiselect; templates test it with `{% if "magic_link" in login %}`.
 - `template/` holds the generated project. Nothing outside it reaches a project.
 - `licenses/<license>.txt` holds the license texts. The LICENSE template includes the chosen one.
@@ -28,7 +28,7 @@ This repository is a [Copier](https://copier.readthedocs.io/) template.
 `mise run lint` runs ruff on `template_tests/` and on the plain Python files under `template/`.
 The `.jinja` files are not valid Python, so ruff and basedpyright check them only in a
 generated project. The template workflow does that for six answer combinations: all on,
-all off and each part alone.
+all off and each part except `daisy_ui` alone.
 
 Two workflows exist:
 
