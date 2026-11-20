@@ -63,6 +63,10 @@ Django's connection pool is on; `DATABASE_POOL=false` turns it off for PgBouncer
 Each process holds 1 to 10 connections, set by `DATABASE_POOL_MIN_SIZE` and `DATABASE_POOL_MAX_SIZE`.
 Under ASGI each concurrent sync view holds one, so the maximum caps concurrent requests per process.
 
+`EMAIL_URL` configures email and defaults to `console:`.
+`<package>/email_url.py` turns it into the `MAILERS` setting.
+Django 6.1 deprecates the `EMAIL_*` settings, so settings.py sets none of them.
+
 The default cache is Django's `DatabaseCache` in the table `django_cache`.
 `migrate` creates it through a post_migrate receiver in `<package>/cache.py`.
 The table is UNLOGGED: writes skip the WAL, and a crash empties it.

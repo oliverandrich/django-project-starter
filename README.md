@@ -20,6 +20,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - [granian](https://github.com/emmett-framework/granian) serving ASGI, in development and in the Docker image
 - PostgreSQL through psycopg 3; `mise run bootstrap` creates and migrates the database
 - Django's database cache in an UNLOGGED PostgreSQL table, created by `migrate`
+- Email through Django 6.1's `MAILERS`, configured by `EMAIL_URL` with [dj-email-url](https://github.com/migonzalvar/dj-email-url)
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
 - [adds some standard templatetags to the builtins](https://adamj.eu/tech/2023/09/15/django-move-template-tag-library-builtins/)

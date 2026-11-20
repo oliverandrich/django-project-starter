@@ -16,6 +16,8 @@ dependencies = [
   "click>=8.5.0",
   "django[argon2]>=6.1.1",
   "environs[django]>=15.2.0",
+  # email_url.py imports it directly; environs[django] only pulls it in.
+  "dj-email-url>=1.0.6",
   "heroicons>=2.14.0",
   "django-tailwind-cli[django-extensions]>=4.9.0",
   "psycopg[binary,pool]>=3.3.9",

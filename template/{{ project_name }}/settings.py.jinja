@@ -272,11 +272,11 @@ STORAGES = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Email backend
-# https://docs.djangoproject.com/en/6.1/ref/settings/#email-backend
+# Email through MAILERS, configured by one URL
+# https://docs.djangoproject.com/en/6.1/ref/settings/#mailers
 # https://docs.djangoproject.com/en/6.1/topics/email/
-EMAIL_CONFIG = env.dj_email_url("EMAIL_URL", default="console:")
-vars().update(EMAIL_CONFIG)
+email_url = import_module("{{ project_name }}.email_url")
+vars().update(email_url.settings(env.str("EMAIL_URL", default="console:")))
 
 # Caches
 # https://docs.djangoproject.com/en/6.1/ref/settings/#caches
