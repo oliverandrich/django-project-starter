@@ -26,7 +26,7 @@ A reusable app or a clearly separate domain justifies one. File size alone does 
 Run everything through mise. It pins Python and uv, and loads `.env`.
 
 ```bash
-mise run bootstrap       # first setup: .env, dependencies, CSS, git, pre-commit hook
+mise run bootstrap       # first setup: .env, dependencies, database, CSS, git, pre-commit hook
 mise run upgrade         # upgrade all dependencies
 {% endraw %}{% if background_tasks %}{% raw %}mise run debugserver     # granian (ASGI), Tailwind, worker and scheduler; Ctrl-C stops all
 {% endraw %}{% else %}{% raw %}mise run debugserver     # granian (ASGI) and Tailwind; Ctrl-C stops both
@@ -56,7 +56,8 @@ Do not add a second settings module per environment.
 
 PostgreSQL is the only supported database, through psycopg 3.
 `DATABASE_URL` defaults to `postgres:///<package>` over the local Unix socket.
-`mise run manage createdb` creates that database; `mise run bootstrap` calls it.
+`mise run manage createdb` creates that database.
+`mise run bootstrap` calls it and then migrates.
 Tests need a running PostgreSQL server and the CREATEDB privilege.
 Django's connection pool is on; `DATABASE_POOL=false` turns it off for PgBouncer in transaction mode.
 Each process holds 1 to 10 connections, set by `DATABASE_POOL_MIN_SIZE` and `DATABASE_POOL_MAX_SIZE`.

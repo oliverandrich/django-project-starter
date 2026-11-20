@@ -18,7 +18,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - environs\[django\]
 - heroicons
 - [granian](https://github.com/emmett-framework/granian) serving ASGI, in development and in the Docker image
-- PostgreSQL through psycopg 3; `mise run bootstrap` creates the database
+- PostgreSQL through psycopg 3; `mise run bootstrap` creates and migrates the database
 - Django's database cache in an UNLOGGED PostgreSQL table, created by `migrate`
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)

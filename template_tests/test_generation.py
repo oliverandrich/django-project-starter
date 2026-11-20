@@ -226,18 +226,26 @@ def test_claude_md_imports_agents_md(generate):
     assert (generate() / "CLAUDE.md").read_text() == "@AGENTS.md\n"
 
 
-def test_bootstrap_commits_the_project_and_warns_without_a_database(generate, tmp_path_factory):
-    """mise, uv and uvx are stubbed: this checks the script's logic, not the toolchain.
+CREATEDB = "uv run python manage.py createdb"
+MIGRATE = "uv run python manage.py migrate"
+TAILWIND_BUILD = "uv run python manage.py tailwind build"
 
-    The template workflow's end-to-end job runs the real bootstrap.
+
+def _run_bootstrap(
+    project: Path, stubs: Path, *, failing: str | None
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run the bootstrap task with mise, python, uv and uvx stubbed.
+
+    This checks the script's logic, not the toolchain.
+    The uv stub exits 1 for the manage.py command named by `failing`.
+    Returns the run and the uv calls.
+    The template workflow runs the real bootstrap.
     """
-    project = generate()
-    stubs = tmp_path_factory.mktemp("stubs")
+    fail = f'case "$*" in *"manage.py {failing}"*) exit 1;; esac' if failing else ""
     stub_bodies = {
         "mise": f'echo "{stubs}/python"',
         "python": 'echo "Python 3.14.0"',
-        # createdb fails as it does without a reachable PostgreSQL server.
-        "uv": f'echo "uv $*" >> "{stubs}/uv.calls"; case "$*" in *createdb*) exit 1;; esac',
+        "uv": f'echo "uv $*" >> "{stubs}/uv.calls"; {fail}',
         "uvx": ":",
     }
     env = {
@@ -251,15 +259,45 @@ def test_bootstrap_commits_the_project_and_warns_without_a_database(generate, tm
     bootstrap = subprocess.run(
         [".mise/tasks/bootstrap"], cwd=project, env=env, check=True, capture_output=True, text=True
     )
+    return bootstrap, (stubs / "uv.calls").read_text().splitlines()
 
-    committed = subprocess.run(
+
+def _committed(project: Path) -> list[str]:
+    return subprocess.run(
         ["git", "ls-files"], cwd=project, capture_output=True, text=True, check=True
     ).stdout.splitlines()
+
+
+def test_bootstrap_commits_the_project_and_warns_without_a_database(generate, tmp_path_factory):
+    """createdb fails as it does without a reachable PostgreSQL server."""
+    project = generate()
+    stubs = tmp_path_factory.mktemp("stubs")
+    bootstrap, uv_calls = _run_bootstrap(project, stubs, failing="createdb")
+
+    committed = _committed(project)
     assert CI_WORKFLOW in committed
     assert ".copier-answers.yml" in committed
     assert UV_UPDATES in (project / ".github/dependabot.yml").read_text()
-    assert "uv run python manage.py createdb" in (stubs / "uv.calls").read_text().splitlines()
+    assert CREATEDB in uv_calls
+    assert MIGRATE not in uv_calls
     assert "DATABASE_URL" in bootstrap.stdout + bootstrap.stderr
+
+
+def test_bootstrap_migrates_a_reachable_database(generate, tmp_path_factory):
+    project = generate()
+    _, uv_calls = _run_bootstrap(project, tmp_path_factory.mktemp("stubs"), failing=None)
+    assert uv_calls[uv_calls.index(CREATEDB) + 1] == MIGRATE
+    assert TAILWIND_BUILD in uv_calls
+    assert CI_WORKFLOW in _committed(project)
+
+
+def test_bootstrap_finishes_and_warns_when_migrate_fails(generate, tmp_path_factory):
+    project = generate()
+    stubs = tmp_path_factory.mktemp("stubs")
+    bootstrap, uv_calls = _run_bootstrap(project, stubs, failing="migrate")
+    assert TAILWIND_BUILD in uv_calls
+    assert CI_WORKFLOW in _committed(project)
+    assert "mise run migrate" in bootstrap.stdout + bootstrap.stderr
 
 
 def _run_entrypoint(project: Path, stubs: Path, *args: str) -> subprocess.CompletedProcess[str]:
