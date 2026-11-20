@@ -6,6 +6,8 @@ import json
 import os
 import re
 import subprocess
+import tomllib
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -29,7 +31,7 @@ AGENT_FILES = ("AGENTS.md", "CLAUDE.md")
 LOGINS = ["password", "microsoft", "magic_link"]
 
 # The repository's own files, outside template/.
-REPOSITORY_FILES = ("template_tests", "copier.yml", ".github/workflows/template.yml")
+REPOSITORY_FILES = ("template_tests", "copier.yml", "licenses", ".github/workflows/template.yml")
 
 # `mise run <task>` as the docs spell it, in a shell block or inline in backticks.
 DOCUMENTED_TASK = re.compile(r"mise run ([a-z][a-z0-9-]*)")
@@ -457,3 +459,46 @@ def test_a_second_run_leaves_the_readme_alone(generate, template_dir):
         quiet=True,
     )
     assert (project / "README.md").read_text() == "# Acme Shop\n\nOur own description.\n"
+
+
+def _pyproject(project: Path) -> dict:
+    return tomllib.loads((project / "pyproject.toml").read_text())["project"]
+
+
+def _license_section(project: Path) -> str:
+    return (project / "README.md").read_text().split("## License", 1)[1]
+
+
+def test_mit_is_the_default_license(generate):
+    """Copier's strftime filter reads local time, as date.today() does.
+
+    The year is read on both sides of generation, so a run across New Year passes.
+    """
+    before = date.today().year
+    project = generate()
+    after = date.today().year
+    license_text = (project / "LICENSE").read_text()
+    assert license_text.startswith("MIT License\n")
+    assert any(f"Copyright (c) {year} Jane Doe\n" in license_text for year in {before, after})
+    assert _pyproject(project)["license"] == "MIT"
+    assert "[MIT License](LICENSE)" in _license_section(project)
+
+
+def test_agpl_license(generate):
+    project = generate(license="AGPL-3.0-or-later", copyright_year="2031")
+    agpl = (REPO_ROOT / "licenses" / "AGPL-3.0-or-later.txt").read_text()
+    assert (project / "LICENSE").read_text() == agpl
+    assert _pyproject(project)["license"] == "AGPL-3.0-or-later"
+    # The AGPL text has no copyright line, so the README holds the notice.
+    section = _license_section(project)
+    assert "Copyright (C) 2031 Jane Doe" in section
+    assert "[GNU Affero General Public License v3.0 or later](LICENSE)" in section
+
+
+def test_proprietary_project_has_no_license(generate):
+    project = generate(license="proprietary")
+    assert not (project / "LICENSE").exists()
+    pyproject = _pyproject(project)
+    assert "license" not in pyproject
+    assert "Private :: Do Not Upload" in pyproject["classifiers"]
+    assert "proprietary" in _license_section(project)

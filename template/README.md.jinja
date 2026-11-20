@@ -4,3 +4,16 @@ Generated from [django-project-starter](https://github.com/oliverandrich/django-
 See AGENTS.md for the conventions and `mise run` tasks.
 
 `copier update` pulls later changes of the starter into this project.
+
+## License
+
+{% set license_names = {"MIT": "MIT License", "AGPL-3.0-or-later": "GNU Affero General Public License v3.0 or later"} %}
+{% if license == "proprietary" %}
+This project is proprietary. All rights reserved.
+{% else %}
+{% if license == "AGPL-3.0-or-later" %}
+Copyright (C) {{ copyright_year }} {{ author }}
+
+{% endif %}
+This project is licensed under the [{{ license_names[license] }}](LICENSE).
+{% endif %}

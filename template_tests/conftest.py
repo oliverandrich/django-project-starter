@@ -49,7 +49,7 @@ def generate(template_dir: Path, tmp_path: Path):
         run_copy(
             str(template_dir),
             destination,
-            data={"project_name": project_name, **answers},
+            data={"project_name": project_name, "author": "Jane Doe", **answers},
             defaults=True,
             quiet=True,
         )

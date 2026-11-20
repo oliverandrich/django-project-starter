@@ -31,9 +31,9 @@ jobs:
       matrix:
         include:
           - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]' }
-          - { live_updates: false, background_tasks: false, login: "[]" }
+          - { live_updates: false, background_tasks: false, login: "[]", license: proprietary }
           - { live_updates: true, background_tasks: false, login: "[]" }
-          - { live_updates: false, background_tasks: true, login: "[]" }
+          - { live_updates: false, background_tasks: true, login: "[]", license: AGPL-3.0-or-later }
           - { live_updates: false, background_tasks: false, login: '["password"]' }
           - { live_updates: false, background_tasks: false, login: '["microsoft","magic_link"]' }
     services:
@@ -83,6 +83,8 @@ jobs:
           --data project_name=acme_shop --data live_updates=${{ matrix.live_updates }}
           --data background_tasks=${{ matrix.background_tasks }}
           --data 'login=${{ matrix.login }}'
+          ${{ matrix.license && format('--data license={0}', matrix.license) || '' }}
+          --data author="Jane Doe"
           . ../acme_shop
       - name: Bootstrap
         run: |

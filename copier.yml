@@ -39,3 +39,26 @@ live_updates:
   type: bool
   help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?
   default: true
+
+license:
+  type: str
+  help: License of the project
+  choices:
+    MIT License: MIT
+    GNU Affero General Public License v3.0 or later: AGPL-3.0-or-later
+    No license, proprietary: proprietary
+  # Values are SPDX IDs for pyproject.toml and name the texts in licenses/.
+  default: MIT
+
+author:
+  type: str
+  help: Copyright holder, named in LICENSE for MIT and in README.md for the AGPL
+  when: "{{ license != 'proprietary' }}"
+  validator: "{% if not author.strip() %}Name the copyright holder.{% endif %}"
+
+copyright_year:
+  type: str
+  help: Year of the copyright notice
+  when: "{{ license != 'proprietary' }}"
+  # strftime comes from the Ansible filters that Copier loads by default.
+  default: "{{ '%Y' | strftime }}"

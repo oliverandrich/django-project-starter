@@ -9,9 +9,11 @@ The import above describes the project this template generates. Its `<package>` 
 
 This repository is a [Copier](https://copier.readthedocs.io/) template.
 
-- `copier.yml` holds the questions: `project_name`, `background_tasks`, `login` and `live_updates`.
+- `copier.yml` holds the questions: `project_name`, `background_tasks`, `login`, `live_updates`,
+  `license`, `author` and `copyright_year`.
   `login` is a multiselect; templates test it with `{% if "magic_link" in login %}`.
 - `template/` holds the generated project. Nothing outside it reaches a project.
+- `licenses/<license>.txt` holds the license texts. The LICENSE template includes the chosen one.
 - `_skip_if_exists` lists files a project owns after generation, such as `README.md`.
   `copier update` never touches them.
 - Copier renders only files ending in `.jinja` and drops the suffix. Every other file is copied
