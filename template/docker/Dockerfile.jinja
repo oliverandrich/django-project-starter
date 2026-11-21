@@ -48,8 +48,10 @@ FROM python-base AS builder-base
 WORKDIR /app
 COPY . /app
 
-# Build static files
-RUN python manage.py tailwind build
+# Build static files. The build has no runtime settings.
+# A project's system checks on them would fail here.
+# The entrypoint's `check --deploy` runs them at start.
+RUN python manage.py tailwind build --skip-checks
 RUN python manage.py collectstatic --no-input
 
 # Compile translation files

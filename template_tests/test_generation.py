@@ -342,6 +342,8 @@ def test_dockerfile_runs_the_entrypoint_unbuffered(generate):
     assert "ENV PYTHONUNBUFFERED=1" in dockerfile
     # manage.py serve runs granian, which otherwise binds to 127.0.0.1 inside the container.
     assert "ENV GRANIAN_HOST=0.0.0.0" in dockerfile
+    # The build has no runtime settings; the entrypoint's `check --deploy` runs the checks.
+    assert "RUN python manage.py tailwind build --skip-checks" in dockerfile
 
 
 def test_debugserver_runs_server_tailwind_worker_and_scheduler(generate):
