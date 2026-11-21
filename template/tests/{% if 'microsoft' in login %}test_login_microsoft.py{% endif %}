@@ -1,8 +1,12 @@
 from django.conf import settings
-from django.test import SimpleTestCase, TestCase
+from django.core import checks
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils.module_loading import import_string
 
-from tests.utils import evaluate_settings
+from tests.utils import PACKAGE, evaluate_settings
+
+check_entra = import_string(f"{PACKAGE}.checks.check_entra")
 
 
 class MicrosoftLoginPageTest(TestCase):
@@ -22,10 +26,55 @@ class MicrosoftSettingsTest(SimpleTestCase):
         self.assertEqual(auth["TENANT_ID"], "tenant")
         self.assertEqual((auth["CLIENT_ID"], auth["RELYING_PARTY_ID"]), ("client", "client"))
 
-    def test_production_has_no_placeholder(self):
-        # django-auth-adfs then refuses to start instead of sending users to a fake tenant.
+    def test_production_falls_back_to_the_placeholder(self):
+        # django-auth-adfs refuses empty ids on import; settings.E003 stops the start instead.
         auth = evaluate_settings(DEBUG="false")["AUTH_ADFS"]
-        self.assertEqual((auth["TENANT_ID"], auth["CLIENT_ID"]), ("", ""))
+        placeholder = settings.ENTRA_PLACEHOLDER
+        self.assertEqual((auth["TENANT_ID"], auth["CLIENT_ID"]), (placeholder, placeholder))
 
     def test_guests_of_the_tenant_are_blocked(self):
         self.assertIs(evaluate_settings()["AUTH_ADFS"]["BLOCK_GUEST_USERS"], True)
+
+
+def entra(**values: str) -> dict:
+    return {**settings.AUTH_ADFS, **values}
+
+
+PLACEHOLDER = settings.ENTRA_PLACEHOLDER
+VARIABLES = ("ENTRA_TENANT_ID", "ENTRA_CLIENT_ID", "ENTRA_CLIENT_SECRET")
+
+
+class EntraCheckTest(SimpleTestCase):
+    @override_settings(
+        DEBUG=False,
+        AUTH_ADFS=entra(TENANT_ID=PLACEHOLDER, CLIENT_ID=PLACEHOLDER, CLIENT_SECRET=""),
+    )
+    def test_placeholders_and_no_secret_outside_debug_are_an_error(self):
+        [error] = check_entra(None)
+        self.assertEqual(error.id, "settings.E003")
+        for variable in VARIABLES:
+            self.assertIn(variable, error.msg)
+
+    @override_settings(
+        DEBUG=False, AUTH_ADFS=entra(TENANT_ID="tenant", CLIENT_ID="client", CLIENT_SECRET="")
+    )
+    def test_the_error_names_only_what_is_missing(self):
+        [error] = check_entra(None)
+        self.assertIn("ENTRA_CLIENT_SECRET", error.msg)
+        self.assertNotIn("ENTRA_TENANT_ID", error.msg)
+
+    @override_settings(
+        DEBUG=False, AUTH_ADFS=entra(TENANT_ID="tenant", CLIENT_ID="client", CLIENT_SECRET="s")
+    )
+    def test_a_registered_app_passes(self):
+        self.assertEqual(check_entra(None), [])
+
+    @override_settings(DEBUG=True, AUTH_ADFS=entra(TENANT_ID=PLACEHOLDER, CLIENT_SECRET=""))
+    def test_debug_needs_no_registration(self):
+        self.assertEqual(check_entra(None), [])
+
+    def test_it_runs_with_check_deploy_only(self):
+        # The worker and the scheduler serve no Microsoft login.
+        registry = checks.registry.registry
+        self.assertIn(check_entra, registry.get_checks(include_deployment_checks=True))
+        self.assertNotIn(check_entra, registry.get_checks(include_deployment_checks=False))

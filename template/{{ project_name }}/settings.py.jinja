@@ -189,12 +189,13 @@ LOGOUT_REDIRECT_URL = "/"
 # Sign-in with Microsoft Entra ID through django-auth-adfs
 # https://django-auth-adfs.readthedocs.io/en/latest/azure_ad_config_guide.html
 # The app registration needs https://<host>/oauth2/callback as its redirect URI.
-# DEBUG falls back to placeholders, so the project starts before the app is registered.
+# Placeholders let django-auth-adfs load before the app is registered.
+# Outside DEBUG, settings.E003 in checks.py stops the start while they remain.
 ENTRA_PLACEHOLDER = "00000000-0000-0000-0000-000000000000"
-ENTRA_CLIENT_ID = env.str("ENTRA_CLIENT_ID", default=ENTRA_PLACEHOLDER if DEBUG else "")
+ENTRA_CLIENT_ID = env.str("ENTRA_CLIENT_ID", default=ENTRA_PLACEHOLDER)
 AUTH_ADFS = {
     # The organisation's own tenant, so only its accounts sign in.
-    "TENANT_ID": env.str("ENTRA_TENANT_ID", default=ENTRA_PLACEHOLDER if DEBUG else ""),
+    "TENANT_ID": env.str("ENTRA_TENANT_ID", default=ENTRA_PLACEHOLDER),
     "CLIENT_ID": ENTRA_CLIENT_ID,
     "CLIENT_SECRET": env.str("ENTRA_CLIENT_SECRET", default=""),
     "RELYING_PARTY_ID": ENTRA_CLIENT_ID,

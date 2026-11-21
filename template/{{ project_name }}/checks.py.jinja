@@ -1,0 +1,73 @@
+"""System checks for settings a production process needs, all silent in DEBUG.
+
+Without them the app starts and /health answers 200, yet pages or logins fail.
+A missing SECRET_KEY answers every page with 500 and missing ALLOWED_HOSTS with 400.
+Django's deploy checks report both only as warnings.
+{% if "microsoft" in login %}
+Entra placeholders let django-auth-adfs load but send every Microsoft login to no tenant.
+{% endif %}
+"""
+
+from django.conf import settings
+from django.core import checks
+from django.core.exceptions import ImproperlyConfigured
+
+
+def check_secret_key(app_configs, **kwargs) -> list[checks.CheckMessage]:
+    if settings.DEBUG:
+        return []
+    try:
+        # Django refuses to return an empty SECRET_KEY.
+        if settings.SECRET_KEY:
+            return []
+    except ImproperlyConfigured:
+        pass
+    return [
+        checks.Error(
+            "SECRET_KEY is empty.",
+            hint="Set the SECRET_KEY environment variable.",
+            id="settings.E001",
+        )
+    ]
+
+
+def check_allowed_hosts(app_configs, **kwargs) -> list[checks.CheckMessage]:
+    if settings.DEBUG or settings.ALLOWED_HOSTS:
+        return []
+    return [
+        checks.Error(
+            "ALLOWED_HOSTS is empty.",
+            hint="Set the ALLOWED_HOSTS environment variable to the site's host names.",
+            id="settings.E002",
+        )
+    ]
+{% if "microsoft" in login %}
+
+
+# AUTH_ADFS keys and the environment variables that set them.
+ENTRA_VARIABLES = {
+    "TENANT_ID": "ENTRA_TENANT_ID",
+    "CLIENT_ID": "ENTRA_CLIENT_ID",
+    "CLIENT_SECRET": "ENTRA_CLIENT_SECRET",
+}
+
+
+def check_entra(app_configs, **kwargs) -> list[checks.CheckMessage]:
+    """Outside DEBUG, the ids are no placeholders and the secret is set."""
+    if settings.DEBUG:
+        return []
+    missing = [
+        variable
+        for key, variable in ENTRA_VARIABLES.items()
+        if settings.AUTH_ADFS[key] in ("", settings.ENTRA_PLACEHOLDER)
+    ]
+    if not missing:
+        return []
+    return [
+        checks.Error(
+            f"Microsoft Entra ID is not configured: {', '.join(missing)}.",
+            hint="Set the variables from the app registration in Entra ID.",
+            id="settings.E003",
+        )
+    ]
+{% endif %}

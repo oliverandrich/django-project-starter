@@ -172,15 +172,7 @@ class MagicLinkCheckTest(SimpleTestCase):
 class WithoutSecretKeyTest(SimpleTestCase):
     def test_check_reports_the_missing_key(self):
         # django-sesame reads SECRET_KEY on import, so magic_link.py imports it late.
-        # Placeholder Entra ids let django-auth-adfs load when the project has it.
-        placeholder = "00000000-0000-0000-0000-000000000000"
-        environ = {
-            **os.environ,
-            "DEBUG": "false",
-            "SECRET_KEY": "",
-            "ENTRA_TENANT_ID": placeholder,
-            "ENTRA_CLIENT_ID": placeholder,
-        }
+        environ = {**os.environ, "DEBUG": "false", "SECRET_KEY": ""}
         result = subprocess.run(
             [sys.executable, "manage.py", "check"],
             cwd=settings.BASE_DIR,

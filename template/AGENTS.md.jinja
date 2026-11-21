@@ -220,7 +220,9 @@ Django's login form checks username and password.
 {% if "microsoft" in login %}
 
 Internal users sign in with Microsoft Entra ID through django-auth-adfs.
-`ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` and `ENTRA_CLIENT_SECRET` configure it; `DEBUG` falls back to placeholders.
+`ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` and `ENTRA_CLIENT_SECRET` configure it.
+Without them, the ids fall back to placeholders, so django-auth-adfs loads.
+Outside `DEBUG`, the deploy check `settings.E003` stops the start until all three are set.
 The app registration needs `https://<host>/oauth2/callback` as its redirect URI.
 The first login creates the account from the `upn` claim; guests of the tenant are blocked.
 Entra groups are not mapped. `GROUPS_CLAIM` and `MIRROR_GROUPS` in `AUTH_ADFS` turn that on.
@@ -287,6 +289,8 @@ Set the worker's `stop_grace_period` in Compose above the runtime of the longest
 `<package>/checks.py` reports them as `settings.E001` and `settings.E002`.
 `settings.E001` stops every command that runs the system checks, the worker included.
 `settings.E002` is a deploy check, so it stops `check --deploy` and with it the web start.
+{% endraw %}{% if "microsoft" in login %}{% raw %}`settings.E003` for the Entra variables is a deploy check as well.
+{% endraw %}{% endif %}{% raw %}A process started without the entrypoint skips `check --deploy` and these deploy checks.
 
 `GET /health` answers `{"status": "ok"}` without touching the database.
 `GET /health/ready` also checks the database and the cache, and answers 503 when one fails.
