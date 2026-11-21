@@ -6,9 +6,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{% block title %}Home{% endblock %}</title>
         {% tailwind_css %}
-        {# htmx 4, vendored by `mise run update-htmx`. #}
-        <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
-        <script src="{% static 'vendor/htmx/ext/hx-sse.min.js' %}" defer></script>
+        {% comment %}
+            htmx 4, vendored by `mise run update-htmx`.
+            Without defer, htmx starts at DOMContentLoaded, after hx-sse registered.
+            Deferred, htmx starts in a setTimeout that can run before hx-sse arrives.
+            An hx-sse:connect element then never opens its stream.
+        {% endcomment %}
+        <script src="{% static 'vendor/htmx/htmx.min.js' %}"></script>
+        <script src="{% static 'vendor/htmx/ext/hx-sse.min.js' %}"></script>
         {% django_htmx_script %}
         <script>
             // Read per request, so the header follows login(), which rotates the token in the cookie.

@@ -11,8 +11,9 @@ VENDORED = ("vendor/htmx/htmx.min.js", "vendor/htmx/ext/hx-sse.min.js")
 class HtmxTest(TestCase):
     def test_home_page_loads_the_vendored_scripts(self):
         response = self.client.get("/")
+        # No defer: deferred, htmx can start in a timer before hx-sse registers.
         for path in VENDORED:
-            self.assertContains(response, f'<script src="{settings.STATIC_URL}{path}" defer>')
+            self.assertContains(response, f'<script src="{settings.STATIC_URL}{path}"></script>')
 
     def test_vendored_files_are_static_files(self):
         for path in VENDORED:

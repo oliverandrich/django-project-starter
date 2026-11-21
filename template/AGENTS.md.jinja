@@ -92,6 +92,8 @@ Pages are rendered on the server.
 htmx adds interactivity; there is no JavaScript build step and no SPA framework.
 htmx 4 and its hx-sse extension are vendored in `assets/vendor/htmx`.
 `mise run update-htmx <version>` replaces them after checking the npm checksum.
+Both load without `defer`, so htmx starts at `DOMContentLoaded`, after hx-sse registered.
+Deferred, htmx starts in a timer that can run first, and a stream then never connects.
 django-htmx provides `request.htmx` and, in `DEBUG`, shows error pages for failed htmx requests.
 Do not use its `{% htmx_script %}` tag: it loads the htmx bundled with django-htmx.
 htmx 4 passes attributes to descendants only with the `:inherited` suffix, as in `hx-boost:inherited`.
