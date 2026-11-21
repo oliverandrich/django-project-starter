@@ -28,7 +28,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # A fresh checkout has no .env, and the settings refuse an empty key outside DEBUG.
+      # A fresh checkout has no .env, and settings.E001 refuses an empty key outside DEBUG.
       SECRET_KEY: ci-only-not-secret
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 {% endraw %}
