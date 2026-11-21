@@ -101,3 +101,14 @@ class ProxyCsrfTest(TestCase):
     def test_the_proxy_header_stops_the_redirect(self):
         response = self.client.get("/", headers={**self.HOST, "X-Forwarded-Proto": "https"})
         self.assertEqual(response.status_code, 200)
+
+
+class MailCheckSettingTest(SimpleTestCase):
+{% if "magic_link" in login %}
+    def test_magic_links_keep_the_production_mail_check(self):
+        self.assertNotIn("mail.E001", evaluate_settings().get("SILENCED_SYSTEM_CHECKS", []))
+{% else %}
+    def test_without_magic_links_a_development_mail_backend_passes(self):
+        # The project sends no email, so Django's mail.E001 would stop the start for nothing.
+        self.assertIn("mail.E001", evaluate_settings()["SILENCED_SYSTEM_CHECKS"])
+{% endif %}

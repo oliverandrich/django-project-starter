@@ -288,6 +288,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/6.1/topics/email/
 email_url = import_module("{{ project_name }}.email_url")
 vars().update(email_url.settings(env.str("EMAIL_URL", default="console:")))
+{% if "magic_link" not in login %}
+# The project sends no email, so Django's mail.E001 would stop the start without EMAIL_URL.
+# Remove the entry once the project sends email.
+SILENCED_SYSTEM_CHECKS = ["mail.E001"]
+{% endif %}
 
 # Caches
 # https://docs.djangoproject.com/en/6.1/ref/settings/#caches

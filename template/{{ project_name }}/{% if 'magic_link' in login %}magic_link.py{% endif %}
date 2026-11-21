@@ -7,7 +7,7 @@ Outlook's Safe Links fetch every link before the recipient clicks it.
 from urllib.parse import urlencode
 
 from django import forms
-from django.conf import settings
+from django.conf import global_settings, settings
 from django.contrib.auth import authenticate, get_user_model, login
 from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.core import checks
@@ -124,13 +124,23 @@ def login_with_link(request: HttpRequest) -> HttpResponse:
 
 
 def check_settings(app_configs, **kwargs) -> list[checks.CheckMessage]:
-    """A deploy check: production needs SITE_URL, and with Microsoft INTERNAL_EMAIL_DOMAINS."""
+    """A deploy check: production needs SITE_URL, a sender address and, with Microsoft,
+    INTERNAL_EMAIL_DOMAINS.
+    """
     if settings.DEBUG:
         return []
     errors = []
     if not settings.SITE_URL:
         errors.append(
             checks.Error("SITE_URL is not set; login links need it.", id="magic_link.E001")
+        )
+    if settings.DEFAULT_FROM_EMAIL == global_settings.DEFAULT_FROM_EMAIL:
+        errors.append(
+            checks.Error(
+                f"DEFAULT_FROM_EMAIL is Django's default, {global_settings.DEFAULT_FROM_EMAIL}.",
+                hint="Add ?_default_from_email=<address> to EMAIL_URL.",
+                id="magic_link.E003",
+            )
         )
     if "microsoft" in settings.LOGIN_METHODS and not settings.INTERNAL_EMAIL_DOMAINS:
         errors.append(

@@ -66,7 +66,12 @@ Under ASGI each concurrent sync view holds one, so the maximum caps concurrent r
 `EMAIL_URL` configures email and defaults to `console:`.
 `<package>/email_url.py` turns it into the `MAILERS` setting.
 Django 6.1 deprecates the `EMAIL_*` settings, so settings.py sets none of them.
-
+`?_default_from_email=` and `?_server_email=` in `EMAIL_URL` set the sender addresses.
+{% endraw %}{% if "magic_link" in login %}{% raw %}Outside `DEBUG`, Django's deploy check `mail.E001` refuses a development backend such as `console:`.
+{% endraw %}{% else %}{% raw %}The project sends no email, so settings.py silences Django's deploy check `mail.E001`.
+That check refuses a development backend such as `console:` outside `DEBUG`.
+Remove the entry from `SILENCED_SYSTEM_CHECKS` once the project sends email.
+{% endraw %}{% endif %}{% raw %}
 The default cache is Django's `DatabaseCache` in the table `django_cache`.
 `migrate` creates it through a post_migrate receiver in `<package>/cache.py`.
 The table is UNLOGGED: writes skip the WAL, and a crash empties it.
@@ -238,11 +243,11 @@ An account receives one link per minute, and the page answers the same for unkno
 The `send_link` task mails the link. {% if background_tasks %}Its queue makes the answer equally fast for every address.{% else %}Without a task queue it runs inside the request, so the response time shows whether an account exists.{% endif %}
 
 Links start with `SITE_URL`, never with the request's Host header.
-Links need a real mail backend in production, set through `EMAIL_URL`.
+Links need a real mail backend and a sender address in production, both set through `EMAIL_URL`.
 The token is in the link's query string; keep query strings out of proxy access logs.
 django-sesame reads `SECRET_KEY` on import, so only `send_link` and `<package>/magic_link_backend.py` import it.
 Keep it out of module-level imports that setup or the system checks load.
-`check --deploy` fails without `SITE_URL`{% if "microsoft" in login %} or `INTERNAL_EMAIL_DOMAINS`{% endif %}; the Docker entrypoint runs it before `migrate`.
+`check --deploy` fails without `SITE_URL`{% if "microsoft" in login %}, a sender address or `INTERNAL_EMAIL_DOMAINS`{% else %} or a sender address{% endif %}; the Docker entrypoint runs it before `migrate`.
 {% endif %}
 {% if "microsoft" in login and "magic_link" in login %}
 `INTERNAL_EMAIL_DOMAINS` lists the domains that must use Microsoft; they receive no link.

@@ -143,6 +143,7 @@ class MagicLinkTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
+@override_settings(DEFAULT_FROM_EMAIL="links@shop.example")
 class MagicLinkCheckTest(SimpleTestCase):
     @override_settings(DEBUG=False, SITE_URL="", LOGIN_METHODS=["magic_link"])
     def test_production_needs_a_site_url(self):
@@ -158,6 +159,17 @@ class MagicLinkCheckTest(SimpleTestCase):
     def test_microsoft_needs_internal_domains(self):
         ids = [error.id for error in magic_link.check_settings(None)]
         self.assertEqual(ids, ["magic_link.E002"])
+
+    @override_settings(
+        DEBUG=False,
+        SITE_URL="https://shop.example",
+        LOGIN_METHODS=["magic_link"],
+        DEFAULT_FROM_EMAIL="webmaster@localhost",
+    )
+    def test_production_needs_a_sender_address(self):
+        # Django's default sender; mail servers reject or junk it.
+        ids = [error.id for error in magic_link.check_settings(None)]
+        self.assertEqual(ids, ["magic_link.E003"])
 
     def test_it_runs_with_check_deploy_only(self):
         # The test runner sets DEBUG to False; a regular check would fail every test run.
