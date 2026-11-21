@@ -282,6 +282,9 @@ On the first SIGTERM the worker finishes its current task, then exits.
 Docker sends SIGKILL after 10 seconds, which leaves a longer task `RUNNING`.
 Set the worker's `stop_grace_period` in Compose above the runtime of the longest task.
 {% endraw %}{% endif %}{% raw %}`SECRET_KEY` and `ALLOWED_HOSTS` must be set outside `DEBUG`.
+`<package>/checks.py` reports them as `settings.E001` and `settings.E002`.
+`settings.E001` stops every command that runs the system checks, the worker included.
+`settings.E002` is a deploy check, so it stops `check --deploy` and with it the web start.
 
 `GET /health` answers `{"status": "ok"}` without touching the database.
 `GET /health/ready` also checks the database and the cache, and answers 503 when one fails.

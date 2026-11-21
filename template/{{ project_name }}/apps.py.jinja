@@ -1,9 +1,7 @@
 from importlib import import_module
 
 from django.apps import AppConfig
-{% if "magic_link" in login %}
 from django.core import checks
-{% endif %}
 from django.db.models.signals import post_migrate
 
 
@@ -20,6 +18,10 @@ class ProjectConfig(AppConfig):
         # that cached loggers hold.
         log_config.configure()
         log_config.connect()
+        project_checks = import_module(f"{self.name}.checks")
+        checks.register(project_checks.check_secret_key)
+        # A deploy check: the worker and the scheduler serve no HTTP and need no host names.
+        checks.register(project_checks.check_allowed_hosts, deploy=True)
 {% if "magic_link" in login %}
         # A deploy check: the test runner sets DEBUG to False and would trip it.
         checks.register(import_module(f"{self.name}.magic_link").check_settings, deploy=True)
