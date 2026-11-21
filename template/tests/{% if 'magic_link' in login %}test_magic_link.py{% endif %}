@@ -1,6 +1,10 @@
+import os
 import re
+import subprocess
+import sys
 from importlib import import_module
 
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core import checks, mail
@@ -8,6 +12,7 @@ from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from model_bakery import baker
+from sesame.utils import get_query_string
 
 from tests.utils import PACKAGE
 
@@ -129,7 +134,7 @@ class MagicLinkTest(TestCase):
 
     def test_the_backend_refuses_staff_even_with_a_valid_token(self):
         # A token from anywhere, such as a shell, must not open a staff account.
-        token = magic_link.get_query_string(self.user).removeprefix("?sesame=")
+        token = get_query_string(self.user).removeprefix("?sesame=")
         get_user_model().objects.filter(pk=self.user.pk).update(is_staff=True)
         self.assertIsNone(authenticate(sesame=token))
 
@@ -162,3 +167,27 @@ class MagicLinkCheckTest(SimpleTestCase):
     @override_settings(DEBUG=True, SITE_URL="")
     def test_development_needs_neither(self):
         self.assertEqual(magic_link.check_settings(None), [])
+
+
+class WithoutSecretKeyTest(SimpleTestCase):
+    def test_check_reports_the_missing_key(self):
+        # django-sesame reads SECRET_KEY on import, so magic_link.py imports it late.
+        # Placeholder Entra ids let django-auth-adfs load when the project has it.
+        placeholder = "00000000-0000-0000-0000-000000000000"
+        environ = {
+            **os.environ,
+            "DEBUG": "false",
+            "SECRET_KEY": "",
+            "ENTRA_TENANT_ID": placeholder,
+            "ENTRA_CLIENT_ID": placeholder,
+        }
+        result = subprocess.run(
+            [sys.executable, "manage.py", "check"],
+            cwd=settings.BASE_DIR,
+            env=environ,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertIn("settings.E001", result.stderr)

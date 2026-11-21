@@ -1,0 +1,25 @@
+"""django-sesame's backend for magic_link.py.
+
+A module of its own: django-sesame reads SECRET_KEY on import.
+Django imports authentication backends when a request authenticates or loads its user, not at setup.
+"""
+
+from django.contrib.auth.models import AbstractUser
+from sesame.backends import ModelBackend
+
+from {{ project_name }}.magic_link import is_internal
+
+
+class MagicLinkBackend(ModelBackend):
+    """django-sesame's backend, limited to customer accounts.
+
+    The account is active and has no password, no staff status and no internal domain.
+    """
+
+    def user_can_authenticate(self, user) -> bool:
+        return (
+            isinstance(user, AbstractUser)
+            and super().user_can_authenticate(user)
+            and not (user.is_staff or user.is_superuser or user.has_usable_password())
+            and not is_internal(user.email.lower())
+        )

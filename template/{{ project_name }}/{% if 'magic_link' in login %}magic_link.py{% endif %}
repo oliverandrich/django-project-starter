@@ -10,7 +10,6 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login
 from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
-from django.contrib.auth.models import AbstractUser
 from django.core import checks
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -26,8 +25,6 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import TemplateView
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods, require_POST
-from sesame.backends import ModelBackend
-from sesame.utils import get_query_string
 
 # Seconds before the same account receives another link.
 RESEND_AFTER = 60
@@ -39,12 +36,12 @@ class LinkRequestForm(forms.Form):
 
     def clean_email(self) -> str:
         email = self.cleaned_data["email"].lower()
-        if _is_internal(email):
+        if is_internal(email):
             raise forms.ValidationError(_("Sign in with Microsoft."))
         return email
 
 
-def _is_internal(email: str) -> bool:
+def is_internal(email: str) -> bool:
     return email.rpartition("@")[2] in settings.INTERNAL_EMAIL_DOMAINS
 
 
@@ -60,18 +57,6 @@ def customers() -> QuerySet:
         is_superuser=False,
         password__startswith=UNUSABLE_PASSWORD_PREFIX,
     )
-
-
-class MagicLinkBackend(ModelBackend):
-    """django-sesame's backend, limited to the accounts customers() returns."""
-
-    def user_can_authenticate(self, user) -> bool:
-        return (
-            isinstance(user, AbstractUser)
-            and super().user_can_authenticate(user)
-            and not (user.is_staff or user.is_superuser or user.has_usable_password())
-            and not _is_internal(user.email.lower())
-        )
 
 
 def _safe_next(request: HttpRequest, url: str) -> str:
@@ -104,6 +89,10 @@ def send_link(email: str, next_url: str) -> None:
     # The key belongs to an account, so unknown addresses leave nothing in the cache.
     if user is None or not cache.add(f"magic-link:{user.pk}", True, RESEND_AFTER):
         return
+    # django-sesame reads SECRET_KEY on import.
+    # A late import keeps it out of setup and the system checks.
+    from sesame.utils import get_query_string
+
     query = get_query_string(user)
     if next_url:
         query += "&" + urlencode({"next": next_url})

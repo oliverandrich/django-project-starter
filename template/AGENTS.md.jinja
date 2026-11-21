@@ -238,6 +238,8 @@ The `send_link` task mails the link. {% if background_tasks %}Its queue makes th
 Links start with `SITE_URL`, never with the request's Host header.
 Links need a real mail backend in production, set through `EMAIL_URL`.
 The token is in the link's query string; keep query strings out of proxy access logs.
+django-sesame reads `SECRET_KEY` on import, so only `send_link` and `<package>/magic_link_backend.py` import it.
+Keep it out of module-level imports that setup or the system checks load.
 `check --deploy` fails without `SITE_URL`{% if "microsoft" in login %} or `INTERNAL_EMAIL_DOMAINS`{% endif %}; the Docker entrypoint runs it before `migrate`.
 {% endif %}
 {% if "microsoft" in login and "magic_link" in login %}

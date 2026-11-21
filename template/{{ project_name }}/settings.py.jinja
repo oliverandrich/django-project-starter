@@ -173,7 +173,7 @@ AUTHENTICATION_BACKENDS = [
 {% endif %}
 {% if "magic_link" in login %}
     # django-sesame's backend, limited to customer accounts.
-    "{{ project_name }}.magic_link.MagicLinkBackend",
+    "{{ project_name }}.magic_link_backend.MagicLinkBackend",
 {% endif %}
 ]
 {% if login %}
