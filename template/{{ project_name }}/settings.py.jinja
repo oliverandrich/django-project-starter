@@ -45,6 +45,16 @@ INTERNAL_IPS: list[str] = env.list("INTERNAL_IPS", default=[])
 # https://docs.djangoproject.com/en/6.1/ref/settings/#csrf-trusted-origins
 CSRF_TRUSTED_ORIGINS: list[str] = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
+# HTTPS behind the TLS proxy
+# https://docs.djangoproject.com/en/6.1/ref/settings/#secure-proxy-ssl-header
+# The proxy sets X-Forwarded-Proto, so it must be the only way to reach the app.
+# A client that reaches the app directly could set the header itself.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT = not DEBUG
+# HSTS stays the operator's choice. Browsers keep it for its whole term.
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
+
 # Application definition
 # https://docs.djangoproject.com/en/6.1/ref/settings/#installed-apps
 INSTALLED_APPS = [

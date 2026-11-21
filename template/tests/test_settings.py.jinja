@@ -1,5 +1,5 @@
 from django.core.files.storage import FileSystemStorage, default_storage
-from django.test import SimpleTestCase
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from tests.utils import PACKAGE, evaluate_settings
 
@@ -48,3 +48,56 @@ class EventsSettingTest(SimpleTestCase):
         pg_sse = evaluate_settings(EVENTS_RETENTION_HOURS="72")["PG_SSE"]
         self.assertEqual(pg_sse["RETENTION_HOURS"], 72)
 {% endif %}
+
+
+class ProxySettingTest(SimpleTestCase):
+    def test_outside_debug_trusts_the_proxy_header_and_secures_cookies(self):
+        settings = evaluate_settings(DEBUG="false")
+        self.assertEqual(settings["SECURE_PROXY_SSL_HEADER"], ("HTTP_X_FORWARDED_PROTO", "https"))
+        self.assertTrue(settings["SESSION_COOKIE_SECURE"])
+        self.assertTrue(settings["CSRF_COOKIE_SECURE"])
+        self.assertTrue(settings["SECURE_SSL_REDIRECT"])
+
+    def test_debug_ignores_the_proxy_header(self):
+        settings = evaluate_settings(DEBUG="true")
+        self.assertNotIn("SECURE_PROXY_SSL_HEADER", settings)
+        self.assertFalse(settings["SESSION_COOKIE_SECURE"])
+        self.assertFalse(settings["CSRF_COOKIE_SECURE"])
+        self.assertFalse(settings["SECURE_SSL_REDIRECT"])
+
+    def test_hsts_is_off_unless_the_environment_sets_it(self):
+        self.assertEqual(evaluate_settings()["SECURE_HSTS_SECONDS"], 0)
+        settings = evaluate_settings(SECURE_HSTS_SECONDS="31536000")
+        self.assertEqual(settings["SECURE_HSTS_SECONDS"], 31536000)
+
+
+@override_settings(ALLOWED_HOSTS=["example.com"])
+class ProxyCsrfTest(TestCase):
+    # Without a Host header, the host carries the test client's port 80 and fails the origin.
+    HOST = {"host": "example.com"}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # The suite may run in DEBUG, so the header comes from the settings outside it.
+        header = evaluate_settings(DEBUG="false")["SECURE_PROXY_SSL_HEADER"]
+        cls.enterClassContext(override_settings(SECURE_PROXY_SSL_HEADER=header))
+
+    def _post(self, proxy: dict[str, str]):
+        client = Client(enforce_csrf_checks=True, headers=self.HOST)
+        client.get("/", headers=proxy)
+        token = client.cookies["csrftoken"].value
+        headers = {"origin": "https://example.com", "X-CSRFToken": token, **proxy}
+        return client.post("/", headers=headers)
+
+    def test_post_from_the_https_origin_passes_behind_the_proxy(self):
+        # 405 comes from the view, so CsrfViewMiddleware let the request through.
+        self.assertEqual(self._post({"X-Forwarded-Proto": "https"}).status_code, 405)
+
+    def test_post_from_the_https_origin_fails_without_the_proxy_header(self):
+        self.assertEqual(self._post({}).status_code, 403)
+
+    @override_settings(SECURE_SSL_REDIRECT=True)
+    def test_the_proxy_header_stops_the_redirect(self):
+        response = self.client.get("/", headers={**self.HOST, "X-Forwarded-Proto": "https"})
+        self.assertEqual(response.status_code, 200)

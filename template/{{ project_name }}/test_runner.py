@@ -9,12 +9,14 @@ def suite_settings() -> override_settings:
 
     The manifest storage fails every static lookup until `collectstatic` has run.
     A queueing task backend would leave enqueued tasks unrun.
+    The test client and the live server speak HTTP, so the HTTPS redirect would answer 301.
     """
     staticfiles = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}
     immediate = {"BACKEND": "django.tasks.backends.immediate.ImmediateBackend"}
     return override_settings(
         STORAGES={**settings.STORAGES, "staticfiles": staticfiles},
         TASKS={**settings.TASKS, "default": immediate},
+        SECURE_SSL_REDIRECT=False,
     )
 
 

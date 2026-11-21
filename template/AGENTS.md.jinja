@@ -258,6 +258,12 @@ Write a failing test before a fix or a feature.
 The Docker image runs `manage.py serve`, granian over ASGI on port 8000, and migrates on start.
 Before that it runs `check --deploy`, which stops the start on errors but not on warnings.
 Deployments run behind Caddy, which terminates TLS and compresses responses.
+Outside `DEBUG`, Django takes the scheme from the proxy's `X-Forwarded-Proto` header.
+The proxy must therefore be the only way to reach the app.
+A client that reaches the app directly could set the header itself.
+Outside `DEBUG`, session and CSRF cookies are secure, and plain HTTP redirects to HTTPS.
+`SECURE_HSTS_SECONDS` turns on HSTS and defaults to 0.
+Browsers keep HSTS for its whole term, so the operator sets it.
 Outside `DEBUG`, granian serves `STATIC_ROOT` itself with a one-year cache.
 `collectstatic` keeps only files with a content hash in their name, plus the manifest.
 The storage is `<package>/storage.py`.

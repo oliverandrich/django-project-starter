@@ -138,6 +138,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | INTERNAL_IPS                 | []                                                | settings.py     |
 | LANGUAGE_CODE                | "en"                                              | settings.py     |
 | SECRET_KEY                   |                                                   | settings.py     |
+| SECURE_HSTS_SECONDS          | 0                                                 | settings.py     |
 | TASKS_BACKEND                | "django_tasks_db.DatabaseBackend"                 | settings.py     |
 | TASKS_STALE_AFTER_MINUTES    | 60                                                | settings.py     |
 | TIME_ZONE                    | "UTC"                                             | settings.py     |
