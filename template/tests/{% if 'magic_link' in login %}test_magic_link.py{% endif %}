@@ -181,5 +181,6 @@ class WithoutSecretKeyTest(SimpleTestCase):
             text=True,
             check=False,
         )
+        self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("Traceback", result.stderr)
         self.assertIn("settings.E001", result.stderr)
