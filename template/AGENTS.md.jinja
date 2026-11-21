@@ -187,6 +187,8 @@ htmx dispatches it as a DOM event on the stream element; `event.detail.data` hol
 `can_subscribe()` in `<package>/events.py` decides who may read a topic.
 `public:…` is open to everyone, `user:<id>` to that user; every other kind stays closed.
 Add a case for each new kind of topic, such as chat rooms with a membership check.
+A refused topic gets a 403 with an empty body.
+In `DEBUG`, django-htmx replaces the page with that error response, so the page turns blank.
 It runs when a stream opens, so taking access away needs `close_streams(user=...)` or `close_streams(session=...)`.
 Each closed stream receives an event named `closed`, and htmx reconnects through the check again.
 Add `hx-sse:close="closed"` to a stream element that should stop instead.
