@@ -63,6 +63,13 @@ class EntraCheckTest(SimpleTestCase):
         self.assertIn("ENTRA_CLIENT_SECRET", error.msg)
         self.assertNotIn("ENTRA_TENANT_ID", error.msg)
 
+    def test_a_removed_key_counts_as_missing(self):
+        auth = entra(TENANT_ID="tenant", CLIENT_ID="client")
+        del auth["CLIENT_SECRET"]
+        with self.settings(DEBUG=False, AUTH_ADFS=auth):
+            [error] = check_entra(None)
+        self.assertIn("ENTRA_CLIENT_SECRET", error.msg)
+
     @override_settings(
         DEBUG=False, AUTH_ADFS=entra(TENANT_ID="tenant", CLIENT_ID="client", CLIENT_SECRET="s")
     )

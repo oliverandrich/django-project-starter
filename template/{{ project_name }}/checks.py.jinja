@@ -59,7 +59,7 @@ def check_entra(app_configs, **kwargs) -> list[checks.CheckMessage]:
     missing = [
         variable
         for key, variable in ENTRA_VARIABLES.items()
-        if settings.AUTH_ADFS[key] in ("", settings.ENTRA_PLACEHOLDER)
+        if settings.AUTH_ADFS.get(key, "") in ("", settings.ENTRA_PLACEHOLDER)
     ]
     if not missing:
         return []
