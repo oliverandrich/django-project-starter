@@ -9,4 +9,8 @@ includes = ["template_tests/tasks"]
 
 [tasks.lint]
 description = "Lint the template tests and the plain Python files under template/"
-run = ["uvx ruff check template_tests template", "uvx ruff format --check template_tests template"]
+# The license task has no .py suffix, so ruff checks it only when named.
+run = [
+  "uvx ruff check template_tests template template/.mise/tasks/license",
+  "uvx ruff format --check template_tests template template/.mise/tasks/license",
+]

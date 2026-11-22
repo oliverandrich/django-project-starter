@@ -49,6 +49,9 @@ mise run test-browser    # browser tests in Chromium
 Source files name their license in an SPDX line near the top: `SPDX-License-Identifier: {% endraw %}{{ license }}{% raw %}`.
 A copied file keeps its license statement only through this line.
 `.mise/tasks/license` checks the package, `tests/`, `assets/js/`, `.mise/tasks/`{% endraw %}{% if docker %}, `docker/`{% endif %}{% raw %} and `manage.py`.
+Add directories or files to the check in `pyproject.toml`, such as `[tool.license]` with `extra-paths = ["assets/css"]`.
+An extra path that does not exist or lies outside the project stops the check.
+In a git repository the check leaves out ignored files, such as the built `tailwind.css`.
 The line follows a shebang or a build directive.
 Django templates carry it as a `{# #}` comment in front of their first line, so it renders nothing.
 Files of a type without comments, such as JSON or images, carry none.

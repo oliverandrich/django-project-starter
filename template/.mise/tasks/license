@@ -1,124 +1,199 @@
-#!/usr/bin/env bash
-#MISE description="Check that every source file states the project's license; --fix adds the marker"
-#
-# A file copied out of the repository keeps its license statement only through its marker.
-# pyproject.toml names the license. Without one, the project is proprietary and needs none.
-# The check covers whole directories, not a list of files.
-# Files of a type without comments, such as JSON or images, carry no marker and are skipped.
-# Third-party code under assets/vendor and the translation catalogues are excluded.
-# copier.yml runs `--fix` after `copier copy` and `copier update`; pre-commit runs the check.
-set -euo pipefail
+#!/usr/bin/env -S uv run --quiet --script
+# MISE description="Check the license markers of the source files; --fix adds them"
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""Check that the project's source files name its license in an SPDX line.
 
-# Sets comment to the text that carries the marker, by file type, and joined to true when it
-# shares the first line. Empty for a type without comments.
-# Builtins only: a subshell per file would make the run over a whole project slow.
-set_comment() {
-    joined=false
-    case "$1" in
-    # Django templates: the comment renders nothing, but a newline after it would render.
-    */templates/*.html | */templates/*.txt)
-        comment="{# $marker #}"
-        joined=true
-        return
-        ;;
-    esac
-    case "${1##*/}" in
-    *.py | *.sh | *.yaml | *.yml) comment="# $marker" ;;
-    *.js | *.mjs) comment="// $marker" ;;
-    *.css) comment="/* $marker */" ;;
-    *.*) comment="" ;;
-    # No extension: shell tasks and the image's build file, both commented with #.
-    *) comment="# $marker" ;;
-    esac
-}
+A file copied out of the repository keeps its license statement only through its marker.
+pyproject.toml names the license. Without one, the project is proprietary and needs none.
+The check covers whole directories, not a list of files. Files of a type without comments,
+such as JSON or images, carry no marker and are skipped. So are third-party code under
+vendor/ and the translation catalogues.
 
-# Writes the marker at the top: after a shebang or a BuildKit directive, and in front of the
-# first line of a Django template.
-add_marker() {
-    local file="$1" first=""
-    IFS= read -r first <"$file" || true
-    case "$first" in
-    '#!'* | '# syntax='* | '# escape='* | '# check='*)
-        { printf '%s\n%s\n' "$first" "$comment"; tail -n +2 "$file"; } >"$scratch"
-        ;;
-    *)
-        if $joined; then
-            { printf '%s' "$comment"; cat "$file"; } >"$scratch"
-        else
-            { printf '%s\n' "$comment"; cat "$file"; } >"$scratch"
-        fi
-        ;;
-    esac
-    # Through cat, so the file keeps its permissions.
-    cat "$scratch" >"$file"
-}
+[tool.license] extra-paths in pyproject.toml adds directories or files to the defaults.
+An extra path that does not exist, or lies outside the project, stops the check.
+In the project's own git repository, ignored files such as the built tailwind.css are left out.
 
-# Replaces the license a marker on line $2 names, such as after a change of the license.
-replace_marker() {
-    sed "$2s/SPDX-License-Identifier: [^[:space:]]*/$marker/" "$1" >"$scratch"
-    cat "$scratch" >"$1"
-}
+copier.yml runs `--fix` after `copier copy` and `copier update`; pre-commit runs the check.
+uv runs this file with a Python that has tomllib, also before the project has a venv.
+"""
 
-# The script marks itself too, and bash reads a script while it runs.
-# main is parsed whole before it starts, so the edit cannot shift the code still to come.
-main() {
-    # The project root from the script's own place: Copier runs it with the caller's environment.
-    cd "$(dirname "$0")/../.."
+import re
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
 
-    license="$(sed -n 's/^license = "\(.*\)"$/\1/p' pyproject.toml)"
-    if [ -z "$license" ]; then
-        echo "pyproject.toml names no license, so no file needs a marker."
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PATHS = ("tests", "assets/js", ".mise/tasks", "manage.py", "docker")
+SKIPPED_DIRECTORIES = {"vendor", "locale", "__pycache__"}
+SKIPPED_NAMES = {".gitkeep", ".DS_Store"}
+
+# The license runs to the end of the comment, a template tag or the line.
+MARKER = re.compile(r"SPDX-License-Identifier:[ \t]*(.*?)[ \t\r]*(?:#\}|\*/|\{%|$)")
+# Lines that must stay first: a shebang and the build file's parser directives.
+FIRST_LINE = re.compile(r"#!|# *(syntax|escape|check)=")
+
+
+class CheckError(Exception):
+    pass
+
+
+def comment_for(path: Path, marker: str) -> tuple[str, str] | None:
+    """The marker as a comment and what follows it, or None for a type without comments."""
+    if "templates" in path.relative_to(ROOT).parts and path.suffix in {".html", ".txt"}:
+        # The comment renders nothing, but a newline after it would; it joins the first line.
+        return f"{{# {marker} #}}", ""
+    # No suffix: shell tasks and the image's build file, both commented with #.
+    # A dotfile without one, such as .prettierrc, is often JSON and is skipped.
+    if path.suffix in {".py", ".sh", ".yaml", ".yml"} or "." not in path.name:
+        return f"# {marker}", "\n"
+    if path.suffix in {".js", ".mjs"}:
+        return f"// {marker}", "\n"
+    if path.suffix == ".css":
+        return f"/* {marker} */", "\n"
+    return None
+
+
+def read_project() -> tuple[str | None, str, list[str]]:
+    try:
+        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    except tomllib.TOMLDecodeError as error:
+        raise CheckError(f"pyproject.toml is not valid TOML: {error}") from error
+    project = pyproject.get("project", {})
+    spdx_license, name = project.get("license"), project.get("name")
+    if spdx_license is not None and not isinstance(spdx_license, str):
+        raise CheckError("[project] license in pyproject.toml must be an SPDX expression string.")
+    if not isinstance(name, str):
+        raise CheckError("[project] name in pyproject.toml must name the package.")
+    extra = pyproject.get("tool", {}).get("license", {}).get("extra-paths", [])
+    if not isinstance(extra, list) or not all(isinstance(path, str) for path in extra):
+        raise CheckError("[tool.license] extra-paths in pyproject.toml must be a list of strings.")
+    return spdx_license, name, extra
+
+
+def paths_to_check(package: str, extra: list[str]) -> list[Path]:
+    if not (ROOT / package).is_dir():
+        raise CheckError(f"The package {package}, named in pyproject.toml, does not exist.")
+    # A default that a project does not have, such as the docker directory, is skipped.
+    paths = [ROOT / package]
+    paths += [ROOT / path for path in DEFAULT_PATHS if (ROOT / path).exists()]
+    for entry in extra:
+        path = (ROOT / entry).resolve()
+        if not path.is_relative_to(ROOT):
+            raise CheckError(f"The license check covers {entry}, which lies outside the project.")
+        if not path.exists():
+            raise CheckError(
+                f"The license check covers {entry}, which does not exist.\n"
+                "Restore it, or remove it from [tool.license] extra-paths in pyproject.toml."
+            )
+        paths.append(path)
+    return paths
+
+
+def git_lists_the_project() -> bool:
+    """Whether git can list the project's files: inside a work tree that does not ignore it.
+
+    A parent repository, such as a monorepo, counts. One that ignores the project does not.
+    """
+
+    def git(*args: str) -> int:
+        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True).returncode
+
+    return git("rev-parse", "--is-inside-work-tree") == 0 and git("check-ignore", "-q", ".") != 0
+
+
+def list_files(paths: list[Path]) -> list[Path]:
+    if git_lists_the_project():
+        # git leaves out ignored files. Right after copier copy there is no repository yet,
+        # and nothing generated to leave out. git prints paths relative to ROOT, its cwd.
+        relative = [str(path.relative_to(ROOT)) for path in paths]
+        command = ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--"]
+        result = subprocess.run([*command, *relative], cwd=ROOT, capture_output=True)
+        if result.returncode != 0:
+            raise CheckError(f"git ls-files failed: {result.stderr.decode().strip()}")
+        files = {ROOT / name for name in result.stdout.decode().split("\0") if name}
+    else:
+        files = {file for path in paths for file in ([path] if path.is_file() else path.rglob("*"))}
+    return sorted(
+        file
+        for file in files
+        # git lists a tracked file that was deleted in the working tree. A symlink can point
+        # outside the project, so --fix leaves it alone.
+        if file.is_file()
+        and not file.is_symlink()
+        and not SKIPPED_DIRECTORIES & set(file.relative_to(ROOT).parts)
+        and file.name not in SKIPPED_NAMES
+    )
+
+
+def find_marker(lines: list[str]) -> tuple[int, re.Match[str]] | None:
+    """The first SPDX line within the first five lines and its match."""
+    for number, line in enumerate(lines[:5]):
+        if match := MARKER.search(line):
+            return number, match
+    return None
+
+
+def add_marker(text: str, comment: str, separator: str) -> str:
+    """The text with the marker on top; separator is the file's own line ending or empty."""
+    first, newline, rest = text.partition("\n")
+    if FIRST_LINE.match(first):
+        return f"{first}{newline}{comment}{separator}{rest}"
+    return f"{comment}{separator}{text}"
+
+
+def main(fix: bool) -> int:
+    spdx_license, package, extra = read_project()
+    if not spdx_license:
+        print("pyproject.toml names no license, so no file needs a marker.")
         return 0
-    fi
-    package="$(sed -n 's/^name = "\(.*\)"$/\1/p' pyproject.toml)"
-    marker="SPDX-License-Identifier: $license"
-    fix=false
-    [ "${1:-}" = "--fix" ] && fix=true
-
-    paths=("$package" tests assets/js .mise/tasks manage.py)
-    [ -d docker ] && paths+=(docker)
-
-    scratch="$(mktemp)"
-    trap 'rm -f "$scratch"' EXIT
-    missing=0
-    while IFS= read -r -d '' file; do
-        file="${file#./}"
-        set_comment "$file"
-        [ -n "$comment" ] || continue
-        # The license an SPDX line in the first five lines names, read by the shell itself.
-        named="" number=0
-        while [ "$number" -lt 5 ] && IFS= read -r line; do
-            number=$((number + 1))
-            case "$line" in
-            *SPDX-License-Identifier:*)
-                named="${line#*SPDX-License-Identifier: }"
-                named="${named%%[[:space:]]*}"
-                break
-                ;;
-            esac
-        done <"$file"
-        [ "$named" = "$license" ] && continue
-        if $fix; then
-            if [ -n "$named" ]; then
-                replace_marker "$file" "$number"
-            else
-                add_marker "$file"
-            fi
+    marker = f"SPDX-License-Identifier: {spdx_license}"
+    missing = []
+    for path in list_files(paths_to_check(package, extra)):
+        comment = comment_for(path, marker)
+        if comment is None:
             continue
-        fi
-        echo "  $file${named:+ (names $named)}"
-        missing=$((missing + 1))
-    done < <(find "${paths[@]}" -type f \
-        -not -path '*/__pycache__/*' -not -path '*/vendor/*' -not -path '*/locale/*' \
-        -not -name '.gitkeep' -not -name '.DS_Store' -print0)
+        try:
+            # newline="": the file keeps its line endings, CRLF included.
+            with path.open(encoding="utf-8", newline="") as file:
+                text = file.read()
+        except UnicodeDecodeError:
+            continue
+        lines = text.split("\n")
+        found = find_marker(lines)
+        if found and found[1].group(1) == spdx_license:
+            continue
+        name = str(path.relative_to(ROOT))
+        if not fix:
+            missing.append(f"  {name} (names {found[1].group(1)})" if found else f"  {name}")
+            continue
+        if found:
+            number, match = found
+            line = lines[number]
+            # From the identifier through the old license, so a missing space is added too.
+            lines[number] = f"{line[: match.start()]}{marker}{line[match.end(1) :]}"
+            text = "\n".join(lines)
+        else:
+            comment_text, separator = comment
+            if separator and "\r\n" in text:
+                separator = "\r\n"
+            text = add_marker(text, comment_text, separator)
+        # Writing to the open file keeps its permissions.
+        with path.open("w", encoding="utf-8", newline="") as file:
+            file.write(text)
+    if missing:
+        print("\n".join(missing))
+        print(f"\n{len(missing)} file(s) do not name {spdx_license} as their license.")
+        print(f"Run 'mise run license --fix', or add: {marker}")
+        return 1
+    return 0
 
-    if [ "$missing" -gt 0 ]; then
-        echo ""
-        echo "$missing file(s) do not name $license as their license."
-        echo "Run 'mise run license --fix', or add: $marker"
-        exit 1
-    fi
-}
 
-# One line: bash has read it before main edits this file.
-main "$@"; exit "$?"
+if __name__ == "__main__":
+    try:
+        sys.exit(main(fix="--fix" in sys.argv[1:]))
+    except CheckError as error:
+        print(error)
+        sys.exit(1)

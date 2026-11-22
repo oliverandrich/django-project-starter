@@ -5,6 +5,7 @@ import functools
 import json
 import os
 import re
+import shutil
 import subprocess
 import tomllib
 from datetime import date
@@ -819,3 +820,192 @@ def test_a_changed_license_replaces_the_marker(generate):
     assert "MIT" not in module.splitlines()[1]
     base = (project / "acme_shop/templates/base.html").read_text()
     assert base.startswith("{# SPDX-License-Identifier: AGPL-3.0-or-later #}{% load ")
+
+
+def run_license(project: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(project / ".mise/tasks/license"), *args], cwd=project, capture_output=True, text=True
+    )
+
+
+def test_a_fix_keeps_a_comment_tag_after_the_license(generate):
+    """The license ends at a comment terminator or a template tag, not at whitespace."""
+    project = generate("acme_shop", license="MIT")
+    template = project / "acme_shop/templates/invitation.txt"
+    template.write_text("{% comment %}SPDX-License-Identifier: MIT{% endcomment %}Hello\n")
+    assert run_license(project).returncode == 0
+    pyproject = project / "pyproject.toml"
+    pyproject.write_text(pyproject.read_text().replace('"MIT"', '"AGPL-3.0-or-later"', 1))
+    assert run_license(project, "--fix").returncode == 0
+    assert template.read_text() == (
+        "{% comment %}SPDX-License-Identifier: AGPL-3.0-or-later{% endcomment %}Hello\n"
+    )
+
+
+def test_pyproject_adds_paths_to_the_check(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "extra").mkdir()
+    (project / "extra/module.py").write_text("VALUE = 1\n")
+    pyproject = project / "pyproject.toml"
+    extra = '\n[tool.license]\nextra-paths = [\n  "extra",\n]\n'
+    pyproject.write_text(pyproject.read_text() + extra)
+    result = run_license(project)
+    assert result.returncode == 1
+    assert "extra/module.py" in result.stdout
+
+
+def test_a_missing_extra_path_stops_the_check(generate):
+    project = generate("acme_shop", license="MIT")
+    pyproject = project / "pyproject.toml"
+    pyproject.write_text(pyproject.read_text() + '\n[tool.license]\nextra-paths = ["nowhere"]\n')
+    result = run_license(project)
+    assert result.returncode == 1
+    assert "nowhere" in result.stdout
+
+
+def test_git_ignored_files_need_no_marker(generate):
+    project = generate("acme_shop", license="MIT")
+    subprocess.run(["git", "init", "--quiet"], cwd=project, check=True)
+    (project / "assets/css/tailwind.css").write_text("body {}\n")
+    (project / "assets/css/source.css").write_text("@import 'tailwindcss';\n")
+    pyproject = project / "pyproject.toml"
+    pyproject.write_text(pyproject.read_text() + '\n[tool.license]\nextra-paths = ["assets/css"]\n')
+    assert run_license(project, "--fix").returncode == 0
+    assert (project / "assets/css/tailwind.css").read_text() == "body {}\n"
+    assert (project / "assets/css/source.css").read_text().startswith("/* SPDX-License-Identifier")
+
+
+def set_license(project: Path, spdx: str) -> None:
+    pyproject = project / "pyproject.toml"
+    text = re.sub(r'^license = ".*"$', f'license = "{spdx}"', pyproject.read_text(), flags=re.M)
+    pyproject.write_text(text)
+
+
+def add_license_table(project: Path, table: str) -> None:
+    pyproject = project / "pyproject.toml"
+    pyproject.write_text(pyproject.read_text() + "\n" + table)
+
+
+def test_a_marker_without_a_space_is_replaced_not_doubled(generate):
+    project = generate("acme_shop", license="MIT")
+    module = project / "acme_shop/tight.py"
+    module.write_text("# SPDX-License-Identifier:MIT\nVALUE = 1\n")
+    assert run_license(project).returncode == 0
+    set_license(project, "AGPL-3.0-or-later")
+    assert run_license(project, "--fix").returncode == 0
+    assert module.read_text() == "# SPDX-License-Identifier: AGPL-3.0-or-later\nVALUE = 1\n"
+
+
+def test_an_spdx_expression_stays_as_it_is(generate):
+    project = generate("acme_shop", license="MIT")
+    set_license(project, "MIT OR Apache-2.0")
+    assert run_license(project, "--fix").returncode == 0
+    assert run_license(project, "--fix").returncode == 0
+    assert run_license(project).returncode == 0
+    first = (project / "acme_shop/health.py").read_text().splitlines()[0]
+    assert first == "# SPDX-License-Identifier: MIT OR Apache-2.0"
+
+
+def test_extra_paths_accept_any_toml_spelling(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "extra").mkdir()
+    (project / "extra/module.py").write_text("VALUE = 1\n")
+    add_license_table(project, "[tool.license]  # project files\n  extra-paths = ['extra']\n")
+    result = run_license(project)
+    assert result.returncode == 1
+    assert "extra/module.py" in result.stdout
+
+
+def test_a_missing_default_path_is_skipped(generate):
+    project = generate("acme_shop", license="MIT")
+    shutil.rmtree(project / "assets/js")
+    assert run_license(project).returncode == 0
+
+
+def test_an_extra_path_outside_the_project_stops_the_check(generate):
+    project = generate("acme_shop", license="MIT")
+    add_license_table(project, '[tool.license]\nextra-paths = ["../elsewhere"]\n')
+    result = run_license(project)
+    assert result.returncode == 1
+    assert "../elsewhere" in result.stdout
+
+
+def test_a_parent_repository_that_ignores_the_project_changes_nothing(generate, tmp_path):
+    project = generate("acme_shop", license="MIT")
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    (tmp_path / ".gitignore").write_text("acme_shop/\n")
+    (project / "acme_shop/new_module.py").write_text("VALUE = 1\n")
+    result = run_license(project)
+    assert result.returncode == 1
+    assert "acme_shop/new_module.py" in result.stdout
+
+
+def test_overlapping_paths_count_a_file_once(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "assets/js/app.js").write_text("export {};\n")
+    add_license_table(project, '[tool.license]\nextra-paths = ["assets"]\n')
+    result = run_license(project)
+    assert result.stdout.count("assets/js/app.js") == 1
+    assert "1 file(s)" in result.stdout
+
+
+def test_the_check_names_the_task_that_fixes(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "acme_shop/new_module.py").write_text("VALUE = 1\n")
+    assert "Run 'mise run license --fix'" in run_license(project).stdout
+
+
+def test_dotfiles_without_a_suffix_are_skipped(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "assets/js/.prettierrc").write_text("{}\n")
+    assert run_license(project, "--fix").returncode == 0
+    assert (project / "assets/js/.prettierrc").read_text() == "{}\n"
+
+
+def test_a_fix_keeps_crlf_line_endings(generate):
+    project = generate("acme_shop", license="MIT")
+    script = project / "assets/js/windows.js"
+    script.write_bytes(b"const a = 1;\r\nconst b = 2;\r\n")
+    assert run_license(project, "--fix").returncode == 0
+    assert script.read_bytes() == (
+        b"// SPDX-License-Identifier: MIT\r\nconst a = 1;\r\nconst b = 2;\r\n"
+    )
+    assert run_license(project).returncode == 0
+
+
+def test_symlinks_are_left_alone(generate, tmp_path):
+    project = generate("acme_shop", license="MIT")
+    outside = tmp_path / "shared.js"
+    outside.write_text("export {};\n")
+    (project / "assets/js/shared.js").symlink_to(outside)
+    assert run_license(project, "--fix").returncode == 0
+    assert outside.read_text() == "export {};\n"
+
+
+def test_a_missing_package_stops_the_check(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "acme_shop").rename(project / "renamed")
+    result = run_license(project)
+    assert result.returncode == 1
+    assert "acme_shop" in result.stdout
+
+
+def test_a_license_table_is_refused(generate):
+    project = generate("acme_shop", license="MIT")
+    pyproject = project / "pyproject.toml"
+    table = pyproject.read_text().replace('license = "MIT"', 'license = {text = "MIT"}')
+    pyproject.write_text(table)
+    result = run_license(project, "--fix")
+    assert result.returncode == 1
+    assert "SPDX" in result.stdout
+    assert "text" not in (project / "acme_shop/health.py").read_text().splitlines()[0]
+
+
+def test_a_parent_repository_still_leaves_out_ignored_files(generate, tmp_path):
+    project = generate("acme_shop", license="MIT")
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    (tmp_path / ".gitignore").write_text("acme_shop/assets/css/tailwind.css\n")
+    (project / "assets/css/tailwind.css").write_text("body {}\n")
+    add_license_table(project, '[tool.license]\nextra-paths = ["assets/css"]\n')
+    assert run_license(project, "--fix").returncode == 0
+    assert (project / "assets/css/tailwind.css").read_text() == "body {}\n"

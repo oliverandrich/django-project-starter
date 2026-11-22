@@ -71,6 +71,7 @@ It leaves out live updates, which need PostgreSQL's LISTEN/NOTIFY.
 `--data license=AGPL-3.0-or-later` picks the AGPL; the default is `MIT`.
 `--data license=proprietary` writes no LICENSE file and marks `pyproject.toml` private.
 With MIT or the AGPL, the project's source files start with an `SPDX-License-Identifier` line.
+Copier adds it through `.mise/tasks/license`, which runs under `uv`; `uvx copier` has uv on the PATH already.
 `--data author="Jane Doe"` names the copyright holder; `copyright_year` defaults to the current year.
 
 ## Update
