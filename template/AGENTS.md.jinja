@@ -301,6 +301,7 @@ Without it, each container gets an empty database of its own.
 It reads its settings and secrets from `docker/.env`, which git and the image leave out.
 Its header lists the variables the deploy checks require.
 CI starts it through `docker/smoke-test.sh` and checks `/health/ready` and {% endraw %}{% if login %}the login page{% else %}`/`{% endif %}{% raw %}.
+A tag such as `v1.2.0` publishes the image to ghcr.io as `1.2.0` and `1.2`, through `.github/workflows/release.yml`.
 {% endraw %}{% else %}{% raw %}`manage.py serve` runs granian over ASGI on port 8000.
 Before each start, run `manage.py check --deploy --fail-level ERROR`, then `manage.py migrate`.
 The check fails on errors only; Django's own deploy checks are warnings.

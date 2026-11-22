@@ -173,6 +173,7 @@ With SQLite, every container mounts the same named volume at `/data` instead.
 `docker compose -f docker/compose.yaml up --build --wait`. Its settings and secrets go into
 `docker/.env`; the file's header lists the required ones. A TLS proxy forwards to `127.0.0.1:8000`.
 CI builds the image and starts the example through `docker/smoke-test.sh`.
+A tag such as `v1.2.0` publishes the image to the GitHub Container Registry as `1.2.0` and `1.2`.
 
 The worker finishes its current task on the first SIGTERM, then exits.
 Docker sends SIGKILL after 10 seconds, which leaves a longer task `RUNNING`.

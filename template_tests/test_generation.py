@@ -497,6 +497,22 @@ def test_ci_starts_the_compose_example(generate):
         assert variable in text
 
 
+def test_a_version_tag_publishes_the_image(generate):
+    workflow = yaml.safe_load((generate("acme_shop") / ".github/workflows/release.yml").read_text())
+    # PyYAML reads the key "on" as True.
+    assert workflow[True] == {"push": {"tags": ["v[0-9]*"]}}
+    assert workflow["permissions"] == {"contents": "read", "packages": "write"}
+    steps = workflow["jobs"]["image"]["steps"]
+    build = next(step for step in steps if step.get("uses", "").startswith("docker/build-push"))
+    assert build["with"]["push"] is True
+    assert build["with"]["file"] == "docker/Dockerfile"
+
+
+def test_without_docker_no_image_is_released(generate):
+    project = generate("acme_shop", docker=False)
+    assert not (project / ".github/workflows/release.yml").exists()
+
+
 def test_the_image_leaves_out_compose_secrets(generate):
     ignored = (generate("acme_shop") / ".dockerignore").read_text().splitlines()
     assert "**/.env" in ignored
