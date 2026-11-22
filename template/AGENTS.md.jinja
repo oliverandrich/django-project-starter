@@ -247,7 +247,7 @@ Links need a real mail backend and a sender address in production, both set thro
 The token is in the link's query string; keep query strings out of proxy access logs.
 django-sesame reads `SECRET_KEY` on import, so only `send_link` and `<package>/magic_link_backend.py` import it.
 Keep it out of module-level imports that setup or the system checks load.
-`check --deploy` fails without `SITE_URL`{% if "microsoft" in login %}, a sender address or `INTERNAL_EMAIL_DOMAINS`{% else %} or a sender address{% endif %}; the Docker entrypoint runs it before `migrate`.
+`check --deploy` fails without a sender address{% if "microsoft" in login %} or `INTERNAL_EMAIL_DOMAINS`{% endif %}; the Docker entrypoint runs it before `migrate`.
 {% endif %}
 {% if "microsoft" in login and "magic_link" in login %}
 `INTERNAL_EMAIL_DOMAINS` lists the domains that must use Microsoft; they receive no link.
@@ -295,6 +295,8 @@ Set the worker's `stop_grace_period` in Compose above the runtime of the longest
 `settings.E001` stops every command that runs the system checks, the worker included.
 `settings.E002` is a deploy check, so it stops `check --deploy` and with it the web start.
 {% endraw %}{% if "microsoft" in login %}{% raw %}`settings.E003` for the Entra variables is a deploy check as well.
+{% endraw %}{% endif %}{% if site_url %}{% raw %}`SITE_URL` must be the public HTTPS origin outside `DEBUG`, such as `https://shop.example`.
+`settings.E004` reports anything else and is a deploy check as well.
 {% endraw %}{% endif %}{% raw %}A process started without the entrypoint skips `check --deploy` and these deploy checks.
 
 `GET /health` answers `{"status": "ok"}` without touching the database.

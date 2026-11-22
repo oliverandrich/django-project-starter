@@ -124,16 +124,12 @@ def login_with_link(request: HttpRequest) -> HttpResponse:
 
 
 def check_settings(app_configs, **kwargs) -> list[checks.CheckMessage]:
-    """A deploy check: production needs SITE_URL, a sender address and, with Microsoft,
-    INTERNAL_EMAIL_DOMAINS.
+    """A deploy check: production needs a sender address and, with Microsoft,
+    INTERNAL_EMAIL_DOMAINS. settings.E004 covers SITE_URL.
     """
     if settings.DEBUG:
         return []
     errors = []
-    if not settings.SITE_URL:
-        errors.append(
-            checks.Error("SITE_URL is not set; login links need it.", id="magic_link.E001")
-        )
     if settings.DEFAULT_FROM_EMAIL == global_settings.DEFAULT_FROM_EMAIL:
         errors.append(
             checks.Error(

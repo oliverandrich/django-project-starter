@@ -35,6 +35,12 @@ login:
     Single-use link by email for customers the team creates (django-sesame): magic_link
   default: []
 
+# Computed, never asked and not stored: login methods that mail links need the public origin.
+site_url:
+  type: bool
+  when: false
+  default: "{{ 'magic_link' in login }}"
+
 live_updates:
   type: bool
   help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?

@@ -44,6 +44,13 @@ INTERNAL_IPS: list[str] = env.list("INTERNAL_IPS", default=[])
 # A list of trusted origins for unsafe requests (e.g. POST).
 # https://docs.djangoproject.com/en/6.1/ref/settings/#csrf-trusted-origins
 CSRF_TRUSTED_ORIGINS: list[str] = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+{% if site_url %}
+
+# The public origin, such as https://shop.example. Mailed links start with it.
+# The request's Host header is no substitute, because a client can set it.
+# checks.check_site_url reports settings.E004 for anything but an HTTPS origin outside DEBUG.
+SITE_URL = env.str("SITE_URL", default="http://localhost:8000" if DEBUG else "").rstrip("/")
+{% endif %}
 
 # HTTPS behind the TLS proxy
 # https://docs.djangoproject.com/en/6.1/ref/settings/#secure-proxy-ssl-header
@@ -215,8 +222,6 @@ AUTH_ADFS = {
 # A link opens a confirmation page, so a mail scanner that fetches it does not use it up.
 SESAME_MAX_AGE = 15 * 60
 SESAME_ONE_TIME = True
-# Links start with it, not with the request's Host header, which a client can set.
-SITE_URL = env.str("SITE_URL", default="http://localhost:8000" if DEBUG else "").rstrip("/")
 # Addresses in these domains sign in with Microsoft; the login page sends them no link.
 INTERNAL_EMAIL_DOMAINS = [
     domain.lower() for domain in env.list("INTERNAL_EMAIL_DOMAINS", default=[])

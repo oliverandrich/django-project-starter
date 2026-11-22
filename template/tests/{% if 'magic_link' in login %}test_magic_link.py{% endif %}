@@ -145,14 +145,8 @@ class MagicLinkTest(TestCase):
 
 @override_settings(DEFAULT_FROM_EMAIL="links@shop.example")
 class MagicLinkCheckTest(SimpleTestCase):
-    @override_settings(DEBUG=False, SITE_URL="", LOGIN_METHODS=["magic_link"])
-    def test_production_needs_a_site_url(self):
-        ids = [error.id for error in magic_link.check_settings(None)]
-        self.assertEqual(ids, ["magic_link.E001"])
-
     @override_settings(
         DEBUG=False,
-        SITE_URL="https://shop.example",
         LOGIN_METHODS=["microsoft", "magic_link"],
         INTERNAL_EMAIL_DOMAINS=[],
     )
@@ -162,7 +156,6 @@ class MagicLinkCheckTest(SimpleTestCase):
 
     @override_settings(
         DEBUG=False,
-        SITE_URL="https://shop.example",
         LOGIN_METHODS=["magic_link"],
         DEFAULT_FROM_EMAIL="webmaster@localhost",
     )
@@ -176,7 +169,7 @@ class MagicLinkCheckTest(SimpleTestCase):
         self.assertIn(magic_link.check_settings, checks.registry.registry.get_checks(True))
         self.assertNotIn(magic_link.check_settings, checks.registry.registry.get_checks(False))
 
-    @override_settings(DEBUG=True, SITE_URL="")
+    @override_settings(DEBUG=True, DEFAULT_FROM_EMAIL="webmaster@localhost")
     def test_development_needs_neither(self):
         self.assertEqual(magic_link.check_settings(None), [])
 

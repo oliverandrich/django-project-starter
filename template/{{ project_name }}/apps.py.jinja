@@ -22,6 +22,10 @@ class ProjectConfig(AppConfig):
         checks.register(project_checks.check_secret_key)
         # A deploy check: the worker and the scheduler serve no HTTP and need no host names.
         checks.register(project_checks.check_allowed_hosts, deploy=True)
+{% if site_url %}
+        # A deploy check: the test runner sets DEBUG to False and would trip it.
+        checks.register(project_checks.check_site_url, deploy=True)
+{% endif %}
 {% if "microsoft" in login %}
         # A deploy check: the worker and the scheduler serve no Microsoft login.
         checks.register(project_checks.check_entra, deploy=True)

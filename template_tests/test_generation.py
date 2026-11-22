@@ -441,6 +441,17 @@ def test_internal_domains_come_with_magic_links(generate):
     assert "INTERNAL_EMAIL_DOMAINS" not in (microsoft / "other_shop/settings.py").read_text()
 
 
+def test_site_url_comes_with_login_links(generate):
+    """A login method that mails links needs SITE_URL; the others leave it out."""
+    links = generate("acme_shop", login=["magic_link"])
+    others = generate("other_shop", login=["password", "microsoft"])
+    assert "SITE_URL = " in (links / "acme_shop/settings.py").read_text()
+    assert "check_site_url" in (links / "acme_shop/apps.py").read_text()
+    assert "SITE_URL" not in (others / "other_shop/settings.py").read_text()
+    assert "check_site_url" not in (others / "other_shop/checks.py").read_text()
+    assert "site_url" not in (links / ".copier-answers.yml").read_text()
+
+
 def test_without_live_updates_nothing_names_django_pg_sse(generate):
     project = generate("acme_shop", live_updates=False)
     offenders = [

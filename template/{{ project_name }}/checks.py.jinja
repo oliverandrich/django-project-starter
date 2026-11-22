@@ -3,14 +3,26 @@
 Without them the app starts and /health answers 200, yet pages or logins fail.
 A missing SECRET_KEY answers every page with 500 and missing ALLOWED_HOSTS with 400.
 Django's deploy checks report both only as warnings.
+{% if site_url %}
+A SITE_URL without host or HTTPS produces login links that fail or use plain HTTP.
+{% endif %}
 {% if "microsoft" in login %}
 Entra placeholders let django-auth-adfs load but send every Microsoft login to no tenant.
 {% endif %}
 """
 
+{% if site_url %}
+from urllib.parse import urlsplit
+
+{% endif %}
 from django.conf import settings
 from django.core import checks
+{% if site_url %}
+from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.validators import URLValidator
+{% else %}
 from django.core.exceptions import ImproperlyConfigured
+{% endif %}
 
 
 def check_secret_key(app_configs, **kwargs) -> list[checks.CheckMessage]:
@@ -41,6 +53,30 @@ def check_allowed_hosts(app_configs, **kwargs) -> list[checks.CheckMessage]:
             id="settings.E002",
         )
     ]
+{% if site_url %}
+
+
+def check_site_url(app_configs, **kwargs) -> list[checks.CheckMessage]:
+    """SITE_URL is an HTTPS origin: a valid URL without credentials, path, query or fragment."""
+    if settings.DEBUG:
+        return []
+    try:
+        # Rejects a missing host, a bad port, whitespace and malformed IPv6 addresses.
+        URLValidator(schemes=["https"])(settings.SITE_URL)
+    except ValidationError:
+        pass
+    else:
+        url = urlsplit(settings.SITE_URL)
+        if not (url.username or url.path or url.query or url.fragment):
+            return []
+    return [
+        checks.Error(
+            f"SITE_URL must be the public HTTPS origin, not {settings.SITE_URL!r}.",
+            hint="Set the SITE_URL environment variable, such as https://shop.example.",
+            id="settings.E004",
+        )
+    ]
+{% endif %}
 {% if "microsoft" in login %}
 
 

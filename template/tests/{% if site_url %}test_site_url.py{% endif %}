@@ -1,0 +1,44 @@
+from django.core import checks
+from django.test import SimpleTestCase, override_settings
+from django.utils.module_loading import import_string
+
+from tests.utils import PACKAGE
+
+check_site_url = import_string(f"{PACKAGE}.checks.check_site_url")
+
+
+def ids(site_url: str, *, debug: bool = False) -> list[str | None]:
+    with override_settings(DEBUG=debug, SITE_URL=site_url):
+        return [message.id for message in check_site_url(None)]
+
+
+class SiteUrlCheckTest(SimpleTestCase):
+    def test_an_https_origin_passes(self):
+        self.assertEqual(ids("https://shop.example"), [])
+        self.assertEqual(ids("https://shop.example:8443"), [])
+
+    def test_anything_but_an_https_origin_outside_debug_is_an_error(self):
+        for site_url in (
+            "",
+            "shop.example",
+            "http://shop.example",
+            "https://shop.example/shop",
+            "https://shop.example?a=1",
+            "https://shop.example#top",
+            "https://:443",
+            "https://shop.example:abc",
+            "https://user:pw@shop.example",
+            "https://[::1",
+            "https://shop example",
+        ):
+            with self.subTest(site_url=site_url):
+                self.assertEqual(ids(site_url), ["settings.E004"])
+
+    def test_debug_accepts_plain_http(self):
+        self.assertEqual(ids("http://localhost:8000", debug=True), [])
+
+    def test_it_runs_with_check_deploy_only(self):
+        # The test runner sets DEBUG to False; a regular check would fail every test run.
+        registry = checks.registry.registry
+        self.assertIn(check_site_url, registry.get_checks(include_deployment_checks=True))
+        self.assertNotIn(check_site_url, registry.get_checks(include_deployment_checks=False))
