@@ -70,6 +70,16 @@ COPY --from=builder-base --exclude=uv.lock --exclude=pyproject.toml /app /app
 
 # Change ownership of the application files to the non-root user
 RUN chown -R appuser:appuser /app $UV_PROJECT_ENVIRONMENT $UV_PYTHON_INSTALL_DIR
+{% if database == "sqlite" %}
+
+# The SQLite database lives outside the image, so a new release keeps it.
+# Every container of the app mounts the same named volume here, such as -v app-data:/data.
+# Without it, each container gets an anonymous volume with an empty database of its own.
+# A named volume takes the directory's owner on first use.
+ENV SQLITE_PATH=/data/db.sqlite3
+RUN mkdir -p /data && chown appuser:appuser /data
+VOLUME /data
+{% endif %}
 
 # Switch to the non-root user
 USER appuser

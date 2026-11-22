@@ -4,3 +4,6 @@ docker/Dockerfile
 .venv
 justfile
 tests
+# A local SQLite database and the scheduler's lock file stay out of the image.
+*.sqlite3*
+*.crontask.lock

@@ -15,7 +15,7 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    services:
+{% endraw %}{% if database == "postgresql" %}{% raw %}    services:
       postgres:
         image: postgres:18
         env:
@@ -27,11 +27,11 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
+{% endraw %}{% endif %}{% raw %}    env:
       # A fresh checkout has no .env, and settings.E001 refuses an empty key outside DEBUG.
       SECRET_KEY: ci-only-not-secret
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-    steps:
+{% endraw %}{% if database == "postgresql" %}{% raw %}      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+{% endraw %}{% endif %}{% raw %}    steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
       - uses: actions/cache@v6

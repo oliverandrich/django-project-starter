@@ -1,0 +1,94 @@
+import io
+import subprocess
+import sys
+import tempfile
+from importlib import import_module
+from pathlib import Path
+from typing import Any
+from unittest import mock
+
+from crontask import utils
+from django.core.management import call_command
+from django.test import SimpleTestCase, override_settings
+
+from tests.utils import PACKAGE
+
+scheduler_lock = import_module(f"{PACKAGE}.scheduler_lock")
+FileLock = scheduler_lock.FileLock
+
+# Holds the lock in another process until its stdin closes.
+HOLDER = """
+import sys, filelock
+with filelock.FileLock(sys.argv[1]):
+    print("locked", flush=True)
+    sys.stdin.read()
+"""
+
+
+class FileLockTest(SimpleTestCase):
+    def setUp(self):
+        directory = self.enterContext(tempfile.TemporaryDirectory())
+        self.path = Path(directory) / "crontask.lock"
+
+    def lock(self):
+        return FileLock(self.path, timeout=0.2)
+
+    def hold_in_another_process(self) -> None:
+        holder = subprocess.Popen(
+            [sys.executable, "-c", HOLDER, str(self.path)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert holder.stdin and holder.stdout
+        self.addCleanup(holder.wait)
+        self.addCleanup(holder.stdin.close)
+        self.assertEqual(holder.stdout.readline(), "locked\n")
+
+    def test_a_lock_held_by_another_process_fails(self):
+        self.hold_in_another_process()
+        with self.assertRaises(utils.LockError), self.lock():
+            pass
+
+    def test_lock_is_free_again_after_release(self):
+        with self.lock():
+            pass
+        with self.lock() as lock:
+            self.assertTrue(lock.extend())
+
+    def test_extend_fails_once_the_lock_is_gone(self):
+        with self.lock() as lock:
+            lock.lock.release()
+            with self.assertRaises(utils.LockNotOwnedError):
+                lock.extend()
+
+    def test_crontask_reports_a_running_scheduler(self):
+        self.hold_in_another_process()
+        stderr = io.StringIO()
+        with mock.patch.object(utils, "lock", self.lock()):
+            call_command("crontask", no_task_loading=True, no_heartbeat=True, stderr=stderr)
+        self.assertIn("Another scheduler is already running.", stderr.getvalue())
+
+
+class InstallTest(SimpleTestCase):
+    def setUp(self):
+        self.enterContext(mock.patch.object(utils, "lock", utils.lock))
+
+    @override_settings(SQLITE_PATH=Path("/srv/shop/db.sqlite3"))
+    def test_installs_a_lock_next_to_the_database(self):
+        scheduler_lock.install()
+        # The stubs type crontask's lock as its FakeLock.
+        lock: Any = utils.lock
+        self.assertIsInstance(lock, FileLock)
+        self.assertEqual(lock.lock.lock_file, "/srv/shop/db.crontask.lock")
+
+    @override_settings(CRONTASK={"REDIS_URL": "redis://localhost:6379/0"})
+    def test_redis_lock_is_kept(self):
+        before = utils.lock
+        scheduler_lock.install()
+        self.assertIs(utils.lock, before)
+
+
+class AppConfigTest(SimpleTestCase):
+    def test_ready_installs_the_file_lock(self):
+        self.assertIsInstance(utils.lock, FileLock)

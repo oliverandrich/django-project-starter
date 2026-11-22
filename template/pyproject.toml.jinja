@@ -20,11 +20,19 @@ dependencies = [
   "dj-email-url>=1.0.6",
   "heroicons>=2.14.0",
   "django-tailwind-cli[django-extensions]>=4.9.0",
+{% if database == "postgresql" %}
   "psycopg[binary,pool]>=3.3.9",
+{% else %}
+  "dj-lite>=1.3.0",
+{% endif %}
   "granian[pname]>=2.8.8",
 {% if background_tasks %}
   "django-tasks-db>=0.13.0",
   "django-crontask>=2.2.0",
+{% if database == "sqlite" %}
+  # scheduler_lock.py: one scheduler per database file.
+  "filelock>=4.2.10",
+{% endif %}
 {% endif %}
 {% if live_updates %}
   "django-pg-sse>=0.4.0",

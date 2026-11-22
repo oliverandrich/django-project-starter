@@ -23,12 +23,14 @@ class CacheSettingTest(SimpleTestCase):
 
 
 class CacheTableTest(TestCase):
+{% if database == "postgresql" %}
     def test_migrate_creates_an_unlogged_table(self):
         # The test database is built by migrate, which runs the post_migrate handler.
         with connection.cursor() as cursor:
             cursor.execute("SELECT relpersistence FROM pg_class WHERE relname = 'django_cache'")
             self.assertEqual(cursor.fetchone(), ("u",))
 
+{% endif %}
     def test_cache_stores_entries_in_the_table(self):
         cache.set("greeting", "hello")
         with connection.cursor() as cursor:

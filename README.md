@@ -6,7 +6,7 @@ I took the inspiration from Jeff Triplett's [django-startproject](https://github
 
 The template is also inspired by Carlton Gibson's Post [The Single Folder Django Project Layout](https://noumenal.es/notes/django/single-folder-layout/). It uses the single folder layout as a start as I always run in the same situation Carlton describes in his post. If you have to split the project into several apps, you can always call `python manage.py startapp` later on.
 
-The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-final`.
+The starter runs on PostgreSQL by default. SQLite through dj-lite is an option for a single server.
 
 ## Features
 
@@ -18,8 +18,8 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - environs\[django\]
 - heroicons
 - [granian](https://github.com/emmett-framework/granian) serving ASGI, in development and in the Docker image
-- PostgreSQL through psycopg 3; `mise run bootstrap` creates and migrates the database
-- Django's database cache in an UNLOGGED PostgreSQL table, created by `migrate`
+- PostgreSQL through psycopg 3, or SQLite through [dj-lite](https://github.com/adamghill/dj-lite); `mise run bootstrap` creates and migrates the database
+- Django's database cache, created by `migrate`; on PostgreSQL in an UNLOGGED table
 - Email through Django 6.1's `MAILERS`, configured by `EMAIL_URL` with [dj-email-url](https://github.com/migonzalvar/dj-email-url)
 - [Argon2 password hashing](https://docs.djangoproject.com/en/6.1/topics/auth/passwords/)
 - uses the [single folder Django project layout](https://noumenal.es/notes/django/single-folder-layout/)
@@ -60,6 +60,8 @@ $ mise run bootstrap  # .env, dependencies, database, first CSS build, git, pre-
 $ mise run debugserver
 ```
 
+`--data database=sqlite` uses SQLite through dj-lite instead of PostgreSQL, for a single server.
+It leaves out live updates, which need PostgreSQL's LISTEN/NOTIFY.
 `--data live_updates=false` leaves out django-pg-sse, its settings, URL, task and tests.
 `--data background_tasks=false` leaves out django-tasks-db, django-crontask, the worker and the scheduler.
 `django.tasks` then runs each task inside `enqueue()`, Django's default.
@@ -134,10 +136,10 @@ Or when run as a [12-Factor application](https://12factor.net).
 | ALLOWED_HOSTS                | []                                                | settings.py     |
 | CACHE_URL                    | "db://django_cache?max_entries=10000"             | settings.py     |
 | CSRF_TRUSTED_ORIGINS         | []                                                | settings.py     |
-| DATABASE_POOL                | True                                              | settings.py     |
-| DATABASE_POOL_MAX_SIZE       | 10                                                | settings.py     |
-| DATABASE_POOL_MIN_SIZE       | 1                                                 | settings.py     |
-| DATABASE_URL                 | "postgres:///<project>" (local socket)            | settings.py     |
+| DATABASE_POOL                | True; PostgreSQL only                             | settings.py     |
+| DATABASE_POOL_MAX_SIZE       | 10; PostgreSQL only                               | settings.py     |
+| DATABASE_POOL_MIN_SIZE       | 1; PostgreSQL only                                | settings.py     |
+| DATABASE_URL                 | "postgres:///<project>"; PostgreSQL only          | settings.py     |
 | DEBUG                        | False                                             | settings.py     |
 | EMAIL_URL                    | "console:"                                        | settings.py     |
 | EVENTS_RETENTION_HOURS       | 24                                                | settings.py     |
@@ -146,6 +148,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 | SECRET_KEY                   |                                                   | settings.py     |
 | SECURE_HSTS_SECONDS          | 0                                                 | settings.py     |
 | SITE_URL                     | "http://localhost:8000" in DEBUG; magic_link only | settings.py     |
+| SQLITE_PATH                  | "db.sqlite3" in the project; SQLite only          | settings.py     |
 | TASKS_BACKEND                | "django_tasks_db.DatabaseBackend"                 | settings.py     |
 | TASKS_STALE_AFTER_MINUTES    | 60                                                | settings.py     |
 | TIME_ZONE                    | "UTC"                                             | settings.py     |

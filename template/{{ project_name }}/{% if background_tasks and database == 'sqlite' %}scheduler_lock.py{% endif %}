@@ -1,0 +1,52 @@
+"""A file lock that keeps one `manage.py crontask` scheduler running per SQLite database.
+
+django-crontask locks through Redis or not at all. Without a lock, every running scheduler
+enqueues every cron task. `install()` replaces `crontask.utils.lock` with a lock on a file
+next to the database. The `crontask` command enters that lock, calls `extend()` every
+`LOCK_REFRESH_INTERVAL` seconds from a scheduler thread, and stops on `LockError`.
+
+SQLite runs on one host, so a file lock reaches every scheduler. The operating system
+releases it when the process ends, so the lock needs no TTL.
+`extend()` ignores the TTL arguments crontask passes.
+"""
+
+from pathlib import Path
+from typing import Any, Self
+
+import filelock
+from crontask import conf, utils
+from django.conf import settings
+
+
+class FileLock:
+    """An exclusive lock on `path`, which other processes on the host see."""
+
+    def __init__(self, path: Path, *, timeout: float) -> None:
+        # Not thread-local: crontask enters the lock in one thread and extends it in another.
+        self.lock = filelock.FileLock(path, timeout=timeout, thread_local=False)
+
+    def __enter__(self) -> Self:
+        try:
+            self.lock.acquire()
+        except filelock.Timeout as error:
+            raise utils.LockError("Another scheduler holds the lock.") from error
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.lock.release()
+
+    def extend(self, *_ttl_args: object) -> bool:
+        # Only a release in this process ends the lock. A deleted lock file goes unnoticed.
+        if not self.lock.is_locked:
+            raise utils.LockNotOwnedError("The scheduler released its lock.")
+        return True
+
+
+def install() -> None:
+    """Replace crontask's lock with a file lock, unless Redis provides one."""
+    # get_settings() builds its class with type(), so its attributes are invisible to type checkers.
+    options: Any = conf.get_settings()
+    if options.REDIS_URL:
+        return
+    path = Path(settings.SQLITE_PATH).with_suffix(".crontask.lock")
+    utils.lock = FileLock(path, timeout=options.LOCK_BLOCKING_TIMEOUT)

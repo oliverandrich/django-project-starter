@@ -12,6 +12,9 @@ from importlib import import_module
 from pathlib import Path
 
 import structlog
+{% if database == "sqlite" %}
+from dj_lite import sqlite_config
+{% endif %}
 from django.utils.csp import CSP
 from django.utils.translation import gettext_lazy as _
 from environs import Env, validate
@@ -181,6 +184,7 @@ WSGI_APPLICATION = "{{ project_name }}.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
+{% if database == "postgresql" %}
 # PostgreSQL only. The default reaches a local server over its Unix socket as the current user.
 DATABASES = {"default": env.dj_db_url("DATABASE_URL", default="postgres:///{{ project_name }}")}
 # Django's psycopg pool, one per process.
@@ -192,6 +196,14 @@ if env.bool("DATABASE_POOL", default=True):
         "min_size": env.int("DATABASE_POOL_MIN_SIZE", default=1),
         "max_size": env.int("DATABASE_POOL_MAX_SIZE", default=10),
     }
+{% else %}
+# SQLite, tuned by dj-lite: WAL journal and IMMEDIATE transactions for concurrent writers.
+# https://github.com/adamghill/dj-lite
+# SQLITE_PATH names the database file, relative to BASE_DIR unless absolute.
+# Every process must reach the same file on one host.
+SQLITE_PATH = BASE_DIR / env.path("SQLITE_PATH", default=Path("db.sqlite3"))
+DATABASES = {"default": sqlite_config(SQLITE_PATH.parent, file_name=SQLITE_PATH.name)}
+{% endif %}
 
 
 # Authentication backends
@@ -324,7 +336,11 @@ SILENCED_SYSTEM_CHECKS = ["mail.E001"]
 
 # Caches
 # https://docs.djangoproject.com/en/6.1/ref/settings/#caches
+{% if database == "postgresql" %}
 # Django's DatabaseCache in PostgreSQL. `migrate` creates its UNLOGGED table.
+{% else %}
+# Django's DatabaseCache in the SQLite file. `migrate` creates its table.
+{% endif %}
 CACHES = {
     "default": env.dj_cache_url("CACHE_URL", default="db://django_cache?max_entries=10000"),
 {% if background_tasks %}

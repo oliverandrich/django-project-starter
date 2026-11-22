@@ -1,8 +1,16 @@
+{% if database == "sqlite" %}
+from pathlib import Path
+
+{% endif %}
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage, default_storage
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 
+{% if database == "postgresql" %}
 from tests.utils import PACKAGE, evaluate_settings
+{% else %}
+from tests.utils import evaluate_settings
+{% endif %}
 
 
 class StoragesTest(SimpleTestCase):
@@ -11,6 +19,7 @@ class StoragesTest(SimpleTestCase):
         self.assertIsInstance(default_storage, FileSystemStorage)
 
 
+{% if database == "postgresql" %}
 class DatabaseSettingTest(SimpleTestCase):
     def test_local_postgresql_by_default(self):
         database = evaluate_settings()["DATABASES"]["default"]
@@ -38,6 +47,28 @@ class DatabaseSettingTest(SimpleTestCase):
         # PgBouncer in transaction mode needs Django's pool off.
         database = evaluate_settings(DATABASE_POOL="false")["DATABASES"]["default"]
         self.assertNotIn("pool", database.get("OPTIONS", {}))
+{% else %}
+class DatabaseSettingTest(SimpleTestCase):
+    def test_sqlite_file_in_the_project_by_default(self):
+        database = evaluate_settings()["DATABASES"]["default"]
+        self.assertEqual(database["ENGINE"], "django.db.backends.sqlite3")
+        self.assertEqual(Path(database["NAME"]), Path(settings.BASE_DIR) / "db.sqlite3")
+
+    def test_sqlite_path_selects_the_file(self):
+        database = evaluate_settings(SQLITE_PATH="/data/shop.sqlite3")["DATABASES"]["default"]
+        self.assertEqual(Path(database["NAME"]), Path("/data/shop.sqlite3"))
+
+    def test_a_relative_sqlite_path_starts_at_the_project(self):
+        # Not at the working directory, which differs between processes.
+        database = evaluate_settings(SQLITE_PATH="data/shop.sqlite3")["DATABASES"]["default"]
+        self.assertEqual(Path(database["NAME"]), Path(settings.BASE_DIR) / "data/shop.sqlite3")
+
+    def test_writers_take_the_lock_when_they_start(self):
+        # IMMEDIATE avoids "database is locked" when a read transaction later writes.
+        options = evaluate_settings()["DATABASES"]["default"]["OPTIONS"]
+        self.assertEqual(options["transaction_mode"], "IMMEDIATE")
+        self.assertIn("journal_mode=WAL", options["init_command"])
+{% endif %}
 {% if live_updates %}
 
 

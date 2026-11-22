@@ -1,9 +1,17 @@
+{% if database == "postgresql" %}
 """Database cache tables, created on migrate and made UNLOGGED."""
+{% else %}
+"""Database cache tables, created on migrate."""
+{% endif %}
 
+{% if database == "postgresql" %}
 from django.core.cache import caches
 from django.core.cache.backends.db import BaseDatabaseCache
+{% endif %}
 from django.core.management import call_command
+{% if database == "postgresql" %}
 from django.db import connections
+{% endif %}
 
 
 def create_cache_tables(using: str, **kwargs: object) -> None:
@@ -12,6 +20,7 @@ def create_cache_tables(using: str, **kwargs: object) -> None:
     if "plan" not in kwargs:
         return
     call_command("createcachetable", database=using, verbosity=0)
+{% if database == "postgresql" %}
     connection = connections[using]
     # The same selection createcachetable makes, including subclasses of DatabaseCache.
     tables = [
@@ -30,3 +39,4 @@ def create_cache_tables(using: str, **kwargs: object) -> None:
             # A cache holds nothing that must survive a crash. UNLOGGED skips the WAL on writes.
             if row and row[0] != "u":
                 cursor.execute(f"ALTER TABLE {name} SET UNLOGGED")
+{% endif %}

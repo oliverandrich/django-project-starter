@@ -20,12 +20,17 @@ python="$(mise which python)"
 uv sync --all-extras --python "$python"
 green "Installed dependencies on $("$python" --version)."
 
+{% if database == "postgresql" %}
 # Needs a reachable PostgreSQL server. A failure only warns, so the remaining setup still runs.
 if uv run python manage.py createdb && uv run python manage.py migrate; then
     green "Created the database, unless it existed, and migrated it."
 else
     printf '\033[33m!\033[0m %s\n' "No migrated database: start PostgreSQL or set DATABASE_URL in .env, then run 'mise run manage createdb' and 'mise run migrate'."
 fi
+{% else %}
+uv run python manage.py migrate
+green "Created and migrated the SQLite database."
+{% endif %}
 
 uv run python manage.py tailwind build >/dev/null
 green "Built the initial tailwind.css."

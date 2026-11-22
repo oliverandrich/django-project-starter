@@ -55,7 +55,7 @@ Settings read the environment through environs, following the 12-factor approach
 Add new settings as environment variables with a development default.
 Do not add a second settings module per environment.
 
-PostgreSQL is the only supported database, through psycopg 3.
+{% endraw %}{% if database == "postgresql" %}{% raw %}The database is PostgreSQL, through psycopg 3.
 `DATABASE_URL` defaults to `postgres:///<package>` over the local Unix socket.
 `mise run manage createdb` creates that database.
 `mise run bootstrap` calls it and then migrates.
@@ -63,7 +63,15 @@ Tests need a running PostgreSQL server and the CREATEDB privilege.
 Django's connection pool is on; `DATABASE_POOL=false` turns it off for PgBouncer in transaction mode.
 Each process holds 1 to 10 connections, set by `DATABASE_POOL_MIN_SIZE` and `DATABASE_POOL_MAX_SIZE`.
 Under ASGI each concurrent sync view holds one, so the maximum caps concurrent requests per process.
-
+{% endraw %}{% else %}{% raw %}The database is SQLite, configured by dj-lite in settings.py.
+`SQLITE_PATH` names the file and defaults to `db.sqlite3` in the project directory.
+`migrate` creates the file; tests use an in-memory database.
+dj-lite turns on the WAL journal, so readers do not block the writer.
+Every transaction starts `IMMEDIATE`, so a writer waits up to 5 seconds for the lock instead of failing later.
+SQLite allows one writer at a time; keep write transactions short.
+Every process must reach the same file on one host; a network file system breaks the locks.
+Back up the file with `sqlite3 db.sqlite3 ".backup copy.sqlite3"`, not by copying it while the app runs.
+{% endraw %}{% endif %}{% raw %}
 `EMAIL_URL` configures email and defaults to `console:`.
 `<package>/email_url.py` turns it into the `MAILERS` setting.
 Django 6.1 deprecates the `EMAIL_*` settings, so settings.py sets none of them.
@@ -75,9 +83,9 @@ Remove the entry from `SILENCED_SYSTEM_CHECKS` once the project sends email.
 {% endraw %}{% endif %}{% raw %}
 The default cache is Django's `DatabaseCache` in the table `django_cache`.
 `migrate` creates it through a post_migrate receiver in `<package>/cache.py`.
-The table is UNLOGGED: writes skip the WAL, and a crash empties it.
+{% endraw %}{% if database == "postgresql" %}{% raw %}The table is UNLOGGED: writes skip the WAL, and a crash empties it.
 Standbys do not replicate UNLOGGED tables, so read replicas cannot serve the cache.
-It holds up to 10000 entries; `CACHE_URL=db://django_cache?max_entries=N` changes that.
+{% endraw %}{% endif %}{% raw %}It holds up to 10000 entries; `CACHE_URL=db://django_cache?max_entries=N` changes that.
 
 ## Logging
 
@@ -171,10 +179,12 @@ Keep the limit above the runtime of the longest task.
 Keep tasks short and idempotent.
 Split long work into several tasks.
 
-`<package>/scheduler_lock.py` lets one scheduler run per database through an advisory lock.
+{% endraw %}{% if database == "postgresql" %}{% raw %}`<package>/scheduler_lock.py` lets one scheduler run per database through an advisory lock.
 A second scheduler exits after 15 seconds.
 A transaction-pooling PgBouncer breaks the lock.
-
+{% endraw %}{% else %}{% raw %}`<package>/scheduler_lock.py` lets one scheduler run per database through a lock file next to it.
+A second scheduler exits after 15 seconds.
+{% endraw %}{% endif %}{% raw %}
 {% endraw %}{% endif %}{% if live_updates %}{% raw %}## Live updates
 
 [django-pg-sse](https://github.com/oliverandrich/django-pg-sse) pushes server-sent events over PostgreSQL LISTEN/NOTIFY.
@@ -284,7 +294,10 @@ Test a change to a template, CSS or JavaScript there; the test client sees no ht
 
 {% endraw %}{% if docker %}{% raw %}The Docker image runs `manage.py serve`, granian over ASGI on port 8000, and migrates on start.
 Before that it runs `check --deploy`, which stops the start on errors but not on warnings.
-{% endraw %}{% else %}{% raw %}`manage.py serve` runs granian over ASGI on port 8000.
+{% endraw %}{% if database == "sqlite" %}{% raw %}The image keeps the SQLite file in the volume `/data`, set by `SQLITE_PATH`.
+Every container, one-off commands included, mounts the same named volume, such as `-v app-data:/data`.
+Without it, each container gets an empty database of its own.
+{% endraw %}{% endif %}{% raw %}{% endraw %}{% else %}{% raw %}`manage.py serve` runs granian over ASGI on port 8000.
 Before each start, run `manage.py check --deploy --fail-level ERROR`, then `manage.py migrate`.
 The check fails on errors only; Django's own deploy checks are warnings.
 {% endraw %}{% endif %}{% raw %}Deployments run behind Caddy, which terminates TLS and compresses responses.

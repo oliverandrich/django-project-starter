@@ -106,7 +106,11 @@ def test_file_tasks_stay_executable(generate, template_dir):
     """
     project = generate()
     source = template_dir / "template"
-    tasks = [path.relative_to(source) for path in (source / ".mise/tasks").iterdir()]
+    # Copier drops the .jinja suffix of a rendered task.
+    tasks = [
+        Path(str(path.relative_to(source)).removesuffix(".jinja"))
+        for path in (source / ".mise/tasks").iterdir()
+    ]
     assert tasks, "the template has no file tasks: the test is not looking anywhere"
     not_executable = [str(task) for task in tasks if not os.access(project / task, os.X_OK)]
     assert not_executable == []
@@ -430,6 +434,45 @@ def test_without_docker_nothing_names_the_image(generate, answers):
 def test_the_docker_job_follows_one_blank_line(generate):
     workflow = (generate("acme_shop") / CI_WORKFLOW).read_text()
     assert "uv cache prune --ci\n\n  docker:\n" in workflow
+
+
+POSTGRESQL_REFERENCES = r"psycopg|pg_sse|pg-sse|UNLOGGED|advisory|createdb|DATABASE_POOL|postgres"
+
+
+def test_sqlite_leaves_out_everything_postgresql(generate):
+    project = generate("acme_shop", database="sqlite", login=["password", "magic_link"])
+    offenders = [
+        str(path.relative_to(project))
+        for path in project.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".toml", ".md", ".yml", ".yaml", ".sh", ""}
+        and re.search(POSTGRESQL_REFERENCES, path.read_text(), re.IGNORECASE)
+    ]
+    assert offenders == []
+    assert "sqlite_config" in (project / "acme_shop/settings.py").read_text()
+    answers = (project / ".copier-answers.yml").read_text().splitlines()
+    assert "database: sqlite" in answers
+    assert "live_updates: true" not in answers
+
+
+def test_sqlite_stays_out_of_the_image(generate):
+    """A developer's database holds users and password hashes; COPY . /app would ship it."""
+    ignored = (generate("acme_shop", database="sqlite") / ".dockerignore").read_text().splitlines()
+    assert "*.sqlite3*" in ignored
+    assert "*.crontask.lock" in ignored
+
+
+def test_sqlite_refuses_live_updates(generate):
+    # SQLite has no LISTEN/NOTIFY; the validator rejects live_updates=true passed as data.
+    with pytest.raises(ValueError, match="LISTEN/NOTIFY"):
+        generate("acme_shop", database="sqlite", live_updates=True)
+
+
+def test_postgresql_is_the_default(generate):
+    project = generate("acme_shop")
+    assert "database: postgresql" in (project / ".copier-answers.yml").read_text().splitlines()
+    assert "psycopg" in (project / "pyproject.toml").read_text()
+    assert "dj-lite" not in (project / "pyproject.toml").read_text()
 
 
 def test_live_updates_without_background_tasks_documents_the_pruning(generate):

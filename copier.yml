@@ -20,6 +20,14 @@ project_name:
     Use lowercase letters, digits and underscores, starting with a letter.
     {% endif %}
 
+database:
+  type: str
+  help: Database of the project
+  choices:
+    PostgreSQL through psycopg 3: postgresql
+    SQLite through dj-lite, for a single server: sqlite
+  default: postgresql
+
 background_tasks:
   type: bool
   help: Background tasks with django-tasks-db, a worker and a cron scheduler (django-crontask)?
@@ -49,7 +57,13 @@ site_url:
 live_updates:
   type: bool
   help: Live updates with django-pg-sse (server-sent events over PostgreSQL LISTEN/NOTIFY)?
-  default: true
+  # SQLite has no LISTEN/NOTIFY, so the question is skipped and the answer is false.
+  when: "{{ database == 'postgresql' }}"
+  default: "{{ database == 'postgresql' }}"
+  validator: >-
+    {% if live_updates and database != 'postgresql' %}
+    Live updates need PostgreSQL's LISTEN/NOTIFY.
+    {% endif %}
 
 daisy_ui:
   type: bool

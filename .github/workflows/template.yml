@@ -27,7 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every combination would be 128 jobs. These cover all on, all off and each part but daisy_ui alone.
+      # Every combination would be 256 jobs. These cover all on, all off, each part but daisy_ui alone
+      # and SQLite.
       # docker stays on except in the all-off row. A string, because null == false holds in expressions.
       # daisy_ui runs only in the all-on row; it changes one setting and the body classes.
       matrix:
@@ -38,6 +39,7 @@ jobs:
           - { live_updates: false, background_tasks: true, login: "[]", license: AGPL-3.0-or-later }
           - { live_updates: false, background_tasks: false, login: '["password"]' }
           - { live_updates: false, background_tasks: false, login: '["microsoft","magic_link"]' }
+          - { database: sqlite, live_updates: false, background_tasks: true, login: '["password","magic_link"]' }
     services:
       postgres:
         image: postgres:18
@@ -81,6 +83,7 @@ jobs:
           uvx copier copy --defaults --vcs-ref HEAD
           --data project_name=acme_shop --data live_updates=${{ matrix.live_updates }}
           --data background_tasks=${{ matrix.background_tasks }}
+          ${{ matrix.database && format('--data database={0}', matrix.database) || '' }}
           --data 'login=${{ matrix.login }}'
           ${{ matrix.license && format('--data license={0}', matrix.license) || '' }}
           ${{ matrix.daisy_ui && '--data daisy_ui=true' || '' }}
