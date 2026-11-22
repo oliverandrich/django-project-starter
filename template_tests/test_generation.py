@@ -399,6 +399,39 @@ def test_without_background_tasks_nothing_names_them(generate):
     assert "scheduler)" not in entrypoint
 
 
+DOCKER_REFERENCES = r"Dockerfile|entrypoint|docker/|Docker image|ecosystem: docker|build-push"
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [{}, {"background_tasks": False}, {"login": ["password", "microsoft", "magic_link"]}],
+)
+def test_without_docker_nothing_names_the_image(generate, answers):
+    project = generate("acme_shop", docker=False, **answers)
+    assert not (project / "docker").exists()
+    assert not (project / ".dockerignore").exists()
+    offenders = []
+    for path in project.rglob("*"):
+        if not path.is_file() or path.name == ".copier-answers.yml":
+            continue
+        try:
+            text = path.read_text()
+        except UnicodeDecodeError:
+            continue
+        if re.search(DOCKER_REFERENCES, text):
+            offenders.append(str(path.relative_to(project)))
+    assert offenders == []
+    assert "docker: false" in (project / ".copier-answers.yml").read_text().splitlines()
+    # Without the entrypoint, the docs name the commands it would run.
+    assert "check --deploy --fail-level ERROR" in (project / "AGENTS.md").read_text()
+    assert (project / CI_WORKFLOW).read_text().endswith("uv cache prune --ci\n")
+
+
+def test_the_docker_job_follows_one_blank_line(generate):
+    workflow = (generate("acme_shop") / CI_WORKFLOW).read_text()
+    assert "uv cache prune --ci\n\n  docker:\n" in workflow
+
+
 def test_live_updates_without_background_tasks_documents_the_pruning(generate):
     """Without a scheduler, nothing deletes old events unless the project runs the command."""
     project = generate("acme_shop", background_tasks=False)

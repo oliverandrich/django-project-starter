@@ -12,7 +12,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+{% if docker %}
   - package-ecosystem: docker
     directory: /docker
     schedule:
       interval: weekly
+{% endif %}

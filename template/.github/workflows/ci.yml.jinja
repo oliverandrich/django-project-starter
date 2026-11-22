@@ -59,7 +59,7 @@ jobs:
         run: mise run test-browser
       - name: Prune the uv cache
         run: uv cache prune --ci
-
+{% endraw %}{% if docker %}{% raw %}
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -71,4 +71,4 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-{% endraw %}
+{% endraw %}{% endif %}

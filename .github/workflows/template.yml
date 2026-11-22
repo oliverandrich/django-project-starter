@@ -27,12 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every combination would be 64 jobs. These cover all on, all off and each part but daisy_ui alone.
+      # Every combination would be 128 jobs. These cover all on, all off and each part but daisy_ui alone.
+      # docker stays on except in the all-off row. A string, because null == false holds in expressions.
       # daisy_ui runs only in the all-on row; it changes one setting and the body classes.
       matrix:
         include:
           - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]', daisy_ui: true }
-          - { live_updates: false, background_tasks: false, login: "[]", license: proprietary }
+          - { live_updates: false, background_tasks: false, login: "[]", docker: "false", license: proprietary }
           - { live_updates: true, background_tasks: false, login: "[]" }
           - { live_updates: false, background_tasks: true, login: "[]", license: AGPL-3.0-or-later }
           - { live_updates: false, background_tasks: false, login: '["password"]' }
@@ -83,6 +84,7 @@ jobs:
           --data 'login=${{ matrix.login }}'
           ${{ matrix.license && format('--data license={0}', matrix.license) || '' }}
           ${{ matrix.daisy_ui && '--data daisy_ui=true' || '' }}
+          ${{ matrix.docker == 'false' && '--data docker=false' || '' }}
           --data author="Jane Doe"
           . ../acme_shop
       - name: Bootstrap

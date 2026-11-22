@@ -35,6 +35,11 @@ login:
     Single-use link by email for customers the team creates (django-sesame): magic_link
   default: []
 
+docker:
+  type: bool
+  help: A Docker image with an entrypoint for the web server, worker and scheduler, built in CI?
+  default: true
+
 # Computed, never asked and not stored: login methods that mail links need the public origin.
 site_url:
   type: bool

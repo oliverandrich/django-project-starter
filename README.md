@@ -44,8 +44,8 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - sane ruff configuration
 - [uv](https://docs.astral.sh/uv/) for dependency management
 - [mise](https://mise.jdx.dev) for the toolchain and for project tasks
-- GitHub Actions CI for lint, tests and the Docker build
-- Dependabot for uv, pre-commit, GitHub Actions and Docker
+- GitHub Actions CI for lint, tests and, optionally, the Docker build
+- Dependabot for uv, pre-commit, GitHub Actions and, with the image, Docker
 - `AGENTS.md` with the project's conventions, imported by `CLAUDE.md`
 
 ## Install
@@ -65,6 +65,7 @@ $ mise run debugserver
 `django.tasks` then runs each task inside `enqueue()`, Django's default.
 `--data 'login=["microsoft", "magic_link"]'` picks login methods; the default `[]` keeps only the admin login.
 `--data daisy_ui=true` turns on daisyUI; the login pages use plain Tailwind either way.
+`--data docker=false` leaves out the Dockerfile, the entrypoint and the Docker job in CI.
 `--data license=AGPL-3.0-or-later` picks the AGPL; the default is `MIT`.
 `--data license=proprietary` writes no LICENSE file and marks `pyproject.toml` private.
 `--data author="Jane Doe"` names the copyright holder; `copyright_year` defaults to the current year.
@@ -157,6 +158,7 @@ Or when run as a [12-Factor application](https://12factor.net).
 
 ## Docker and docker-compose
 
+This section applies unless the project was generated with `docker=false`.
 The `docker/Dockerfile` uses a multi stage process to embrace caching for building the container images.
 
 The image starts the web server by default. Pass `worker` or `scheduler` as the command to start
