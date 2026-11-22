@@ -103,10 +103,21 @@ Deferred, htmx starts in a timer that can run first, and a stream then never con
 django-htmx provides `request.htmx` and, in `DEBUG`, shows error pages for failed htmx requests.
 Do not use its `{% htmx_script %}` tag: it loads the htmx bundled with django-htmx.
 htmx 4 passes attributes to descendants only with the `:inherited` suffix, as in `hx-boost:inherited`.
-`base.html` sets the `X-CSRFToken` header on every htmx request from the `csrftoken` cookie.
+`assets/js/csrf.js` sets the `X-CSRFToken` header on every htmx request from the `csrftoken` cookie.
 The cookie follows the token rotation in `login()`, which a token fixed in the page does not.
 Keep `CSRF_COOKIE_HTTPONLY` off, so the script can read the cookie.
 Every page sets that cookie, which makes responses vary on `Cookie`.
+`CONTENT_SECURITY_POLICY` in settings.py sets the Content Security Policy.
+Outside `DEBUG` responses enforce it, unless a view overrides it with `csp_override`.
+In `DEBUG` responses only report violations in the browser console.
+django-htmx shows the error page of a failed htmx request through `eval()` and inline styles.
+Scripts and styles load only from the site's own origin.
+The policy blocks inline `<script>` elements, `style` attributes, `javascript:` URLs and `eval()`.
+Put JavaScript into a file under `assets/js/` and load it with `{% static %}`.
+htmx attributes that evaluate JavaScript need `CSP.UNSAFE_EVAL` in `script-src`.
+Examples are `hx-on` and event filters in `hx-trigger`, such as `click[ctrlKey]`.
+A nonce does not help with boosted links: the browser keeps the first page's nonce.
+The browser tests fail on any violation of the policy.
 htmx 4 swaps 4xx and 5xx responses, and requests time out after 60 seconds.
 {% endraw %}{% if daisy_ui %}{% raw %}Tailwind CSS with daisyUI comes from django-tailwind-cli, which needs no Node.js.
 {% endraw %}{% else %}{% raw %}Tailwind CSS comes from django-tailwind-cli, which needs no Node.js.

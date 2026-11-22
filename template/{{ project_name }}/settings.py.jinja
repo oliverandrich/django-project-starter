@@ -12,6 +12,7 @@ from importlib import import_module
 from pathlib import Path
 
 import structlog
+from django.utils.csp import CSP
 from django.utils.translation import gettext_lazy as _
 from environs import Env, validate
 
@@ -62,6 +63,27 @@ SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT = not DEBUG
 # HSTS stays the operator's choice. Browsers keep it for its whole term.
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
 
+# Content Security Policy
+# https://docs.djangoproject.com/en/6.1/ref/csp/
+# Scripts and styles load only from the site's origin; inline code and eval() are blocked.
+# htmx attributes that evaluate JavaScript, such as hx-on, need CSP.UNSAFE_EVAL.
+CONTENT_SECURITY_POLICY = {
+    "default-src": [CSP.SELF],
+    "script-src": [CSP.SELF],
+    "style-src": [CSP.SELF],
+    "img-src": [CSP.SELF, "data:"],
+    "object-src": [CSP.NONE],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+}
+# DEBUG only reports violations in the browser console.
+# django-htmx shows error pages of failed htmx requests through eval() and inline styles.
+if DEBUG:
+    SECURE_CSP_REPORT_ONLY = CONTENT_SECURITY_POLICY
+else:
+    SECURE_CSP = CONTENT_SECURITY_POLICY
+
 # Application definition
 # https://docs.djangoproject.com/en/6.1/ref/settings/#installed-apps
 INSTALLED_APPS = [
@@ -104,6 +126,7 @@ MIDDLEWARE = [
     # First, so a container health check on the loopback passes without ALLOWED_HOSTS.
     "{{ project_name }}.health.HealthMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

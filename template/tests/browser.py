@@ -13,7 +13,10 @@ from playwright.sync_api import sync_playwright
 
 @tag("browser")
 class BrowserTestCase(StaticLiveServerTestCase):
-    """One Chromium page per test. An uncaught error on the page fails the test."""
+    """One Chromium page per test.
+
+    An uncaught error on the page or a Content Security Policy violation fails the test.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -35,10 +38,21 @@ class BrowserTestCase(StaticLiveServerTestCase):
         self.page.set_default_timeout(10_000)
         self.page_errors: list[str] = []
         self.page.on("pageerror", lambda error: self.page_errors.append(str(error)))
+        self.csp_violations: list[str] = []
+        self.context.expose_function(
+            "reportCspViolation", lambda violation: self.csp_violations.append(violation)
+        )
+        self.context.add_init_script(
+            "document.addEventListener('securitypolicyviolation', (event) =>"
+            " reportCspViolation(`${event.violatedDirective} ${event.blockedURI}`))"
+        )
 
     def tearDown(self):
+        # A round trip delivers the violation reports the page sent after the test's last call.
+        self.page.evaluate("new Promise((resolve) => setTimeout(resolve))")
         self.context.close()
         self.assertEqual(self.page_errors, [])
+        self.assertEqual(self.csp_violations, [])
 
     def url(self, path: str) -> str:
         return f"{self.live_server_url}{path}"

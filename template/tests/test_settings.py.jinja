@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.files.storage import FileSystemStorage, default_storage
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 
@@ -112,3 +113,24 @@ class MailCheckSettingTest(SimpleTestCase):
         # The project sends no email, so Django's mail.E001 would stop the start for nothing.
         self.assertIn("mail.E001", evaluate_settings()["SILENCED_SYSTEM_CHECKS"])
 {% endif %}
+
+
+class ContentSecurityPolicyTest(TestCase):
+    def test_debug_only_reports_violations(self):
+        # django-htmx shows DEBUG error pages through eval() and inline styles.
+        debug = evaluate_settings(DEBUG="true")
+        production = evaluate_settings(DEBUG="false")
+        self.assertEqual(debug.get("SECURE_CSP", {}), {})
+        self.assertEqual(debug["SECURE_CSP_REPORT_ONLY"], production["SECURE_CSP"])
+        self.assertEqual(production.get("SECURE_CSP_REPORT_ONLY", {}), {})
+
+    def test_pages_allow_scripts_and_styles_from_their_origin_only(self):
+        # A development .env turns DEBUG on, which sends the policy as report-only.
+        with self.settings(SECURE_CSP=settings.CONTENT_SECURITY_POLICY):
+            policy = self.client.get("/").headers["Content-Security-Policy"]
+        directives = dict(part.strip().split(" ", 1) for part in policy.split(";"))
+        self.assertEqual(directives["default-src"], "'self'")
+        self.assertEqual(directives["script-src"], "'self'")
+        self.assertEqual(directives["style-src"], "'self'")
+        self.assertEqual(directives["object-src"], "'none'")
+        self.assertEqual(directives["frame-ancestors"], "'none'")

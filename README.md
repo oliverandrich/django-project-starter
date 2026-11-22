@@ -31,6 +31,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - Optional: background tasks with `django.tasks`: [django-tasks-db](https://github.com/RealOrangeOne/django-tasks-db) queues them in PostgreSQL, [django-crontask](https://github.com/codingjoe/django-crontask) schedules recurring ones. An advisory lock keeps a second scheduler from running. A cron task marks tasks as failed that run longer than `TASKS_STALE_AFTER_MINUTES`.
 - JSON logs through [django-structlog](https://github.com/jrobichaud/django-structlog), with a request id and without an access log, query strings or client addresses.
 - `/health` and `/health/ready` for container health checks, answered before `ALLOWED_HOSTS`.
+- A strict Content Security Policy through Django 6's `SECURE_CSP`: scripts and styles only from the site's origin, no inline code.
 - A `@command()` decorator for django-click management commands. They log to a rotating logfile, and to the console in an interactive shell.
 
 ### Development tools
@@ -38,6 +39,7 @@ The starter runs on PostgreSQL only. The last SQLite version is tagged `sqlite-f
 - django-types + basedpyright
 - django-browser-reload
 - model-bakery & faker for smarter testing fixtures
+- Playwright browser tests in Chromium, run by `mise run test-browser`
 - pre-commit setup inspired by [Boost your Django DX](https://adamchainz.gumroad.com/l/byddx)
 - sane ruff configuration
 - [uv](https://docs.astral.sh/uv/) for dependency management

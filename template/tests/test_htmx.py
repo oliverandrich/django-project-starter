@@ -30,8 +30,12 @@ class HtmxTest(TestCase):
     def test_csrf_header_follows_the_cookie(self):
         # A token fixed in the page goes stale when login() rotates it; the cookie does not.
         response = self.client.get("/")
-        self.assertContains(response, "htmx:config:request")
-        self.assertContains(response, "csrftoken=")
+        self.assertContains(response, f'<script src="{settings.STATIC_URL}js/csrf.js"></script>')
+        path = finders.find("js/csrf.js")
+        assert isinstance(path, str), "js/csrf.js is no static file"
+        script = Path(path).read_text()
+        self.assertIn("htmx:config:request", script)
+        self.assertIn("csrftoken=", script)
 
     def test_fallback_csrf_token_passes_the_csrf_check(self):
         client = Client(enforce_csrf_checks=True)
