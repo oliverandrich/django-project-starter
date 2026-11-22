@@ -81,9 +81,13 @@ description = "Run the test suite with coverage"
 # No --settings: manage.py already points at the project's settings, which is where TEST_RUNNER
 # lives. The justfile this replaced named a tests.settings module that never existed.
 run = [
-  "uv run python -m coverage run manage.py test",
+  "uv run python -m coverage run manage.py test --exclude-tag browser",
   "uv run python -m coverage report",
 ]
+
+[tasks.test-browser]
+description = "Run the browser tests in Chromium; `uv run python -m playwright install chromium` first"
+run = "uv run python manage.py test --tag browser"
 
 [tasks.lint]
 description = "Run pre-commit rules on all files"

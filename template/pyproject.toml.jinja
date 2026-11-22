@@ -50,6 +50,8 @@ dev = [
   "django-test-plus>=2.6.2",
   "django-rich>=2.2.0",
   "basedpyright>=1.40.2",
+  # The browser tests; `uv run python -m playwright install chromium` fetches the browser.
+  "playwright>=1.65.2",
 ]
 
 # django-types 0.24.0 has no stubs for django.tasks. They are merged on main (#393) but unreleased.

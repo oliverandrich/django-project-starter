@@ -48,6 +48,15 @@ jobs:
         run: mise run lint
       - name: Test
         run: mise run test
+      # uv.lock pins Playwright, which pins its Chromium build.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('uv.lock') }}
+      - name: Install Chromium
+        run: uv run python -m playwright install --with-deps chromium
+      - name: Browser tests
+        run: mise run test-browser
       - name: Prune the uv cache
         run: uv cache prune --ci
 

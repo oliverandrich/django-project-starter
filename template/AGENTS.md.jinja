@@ -38,13 +38,14 @@ mise run shell           # shell_plus
 mise run scheduler       # enqueue @cron tasks on their schedule
 {% endraw %}{% endif %}{% raw %}mise run manage <args>   # any other manage.py command
 mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade
-mise run test            # test suite with coverage
+mise run test            # test suite with coverage, without the browser tests
+mise run test-browser    # browser tests in Chromium
 ```
 
 ## Done means checked
 
-Run `mise run lint` and `mise run test` before calling a change done.
-Both run in CI on every pull request.
+Run `mise run lint`, `mise run test` and `mise run test-browser` before calling a change done.
+All three run in CI on every pull request.
 CI also builds the Docker image.
 
 ## Configuration
@@ -261,6 +262,12 @@ The test runner in `<package>/test_runner.py` adds rich output.
 It also swaps the manifest static storage for a plain one, so tests need no `collectstatic`.
 It sets the default task backend to `ImmediateBackend`, so enqueued tasks run inside the test.
 Write a failing test before a fix or a feature.
+
+Browser tests drive Chromium through Playwright and carry the tag `browser`.
+`mise run test` leaves them out; `mise run test-browser` runs only them.
+`uv run python -m playwright install chromium` downloads the browser once.
+They subclass `tests.browser.BrowserTestCase`, which fails a test on any uncaught page error.
+Test a change to a template, CSS or JavaScript there; the test client sees no htmx.
 
 ## Production
 

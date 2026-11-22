@@ -113,6 +113,9 @@ mise run lint
 
 # Run the test suite with coverage
 mise run test
+
+# Run the browser tests in Chromium (once: uv run python -m playwright install chromium)
+mise run test-browser
 ```
 
 `mise run worker` exits at once when `TASKS_BACKEND` selects a backend other than django_tasks_db's.

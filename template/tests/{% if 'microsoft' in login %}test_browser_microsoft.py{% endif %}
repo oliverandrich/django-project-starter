@@ -1,0 +1,28 @@
+from unittest import mock
+from urllib.parse import parse_qs, urlsplit
+
+from django.conf import settings
+from django.urls import reverse
+from django_auth_adfs.config import provider_config
+
+from tests.browser import BrowserTestCase
+
+AUTHORIZE = "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize"
+
+
+class MicrosoftLoginTest(BrowserTestCase):
+    def test_the_button_leaves_for_microsoft(self):
+        # Microsoft's page stays out of the test; the browser receives a stand-in.
+        self.page.route(f"{AUTHORIZE}*", lambda route: route.fulfill(body="Microsoft"))
+        # The real load_config fetches the tenant's OpenID configuration from Microsoft.
+        with (
+            mock.patch.object(provider_config, "load_config"),
+            mock.patch.object(provider_config, "authorization_endpoint", AUTHORIZE),
+        ):
+            self.page.goto(self.url(reverse("login")))
+            self.page.get_by_role("link", name="Log in with Microsoft").click()
+            self.page.wait_for_url(f"{AUTHORIZE}*")
+        query = parse_qs(urlsplit(self.page.url).query)
+        self.assertEqual(query["client_id"], [settings.AUTH_ADFS["CLIENT_ID"]])
+        callback = self.url(reverse("django_auth_adfs:callback"))
+        self.assertEqual(query["redirect_uri"], [callback])
