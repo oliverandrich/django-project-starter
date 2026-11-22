@@ -167,6 +167,12 @@ The `docker/Dockerfile` uses a multi stage process to embrace caching for buildi
 The image starts the web server by default. Pass `worker` or `scheduler` as the command to start
 the task worker or the cron scheduler from the same image. Only the web server runs migrations.
 Every process needs `DATABASE_URL` pointing at the PostgreSQL server.
+With SQLite, every container mounts the same named volume at `/data` instead.
+
+`docker/compose.yaml` runs the image with the database and every process the project needs:
+`docker compose -f docker/compose.yaml up --build --wait`. Its settings and secrets go into
+`docker/.env`; the file's header lists the required ones. A TLS proxy forwards to `127.0.0.1:8000`.
+CI builds the image and starts the example through `docker/smoke-test.sh`.
 
 The worker finishes its current task on the first SIGTERM, then exits.
 Docker sends SIGKILL after 10 seconds, which leaves a longer task `RUNNING`.

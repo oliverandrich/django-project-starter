@@ -1,5 +1,8 @@
 .*
-docker/docker-compose.yml
+docker/compose.yaml
+docker/smoke-test.sh
+# Compose reads docker/.env; .* above covers the context root only.
+**/.env
 docker/Dockerfile
 .venv
 justfile

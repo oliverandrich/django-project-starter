@@ -68,7 +68,12 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           file: docker/Dockerfile
-          push: false
-          cache-from: type=gha
+          load: true
+{% endraw %}          tags: {{ project_name }}:latest
+{% raw %}          cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Runs docker/compose.yaml with the image just built, as an operator would.
+      # The script prints the compose logs when a check fails.
+      - name: Smoke test the compose example
+        run: docker/smoke-test.sh
 {% endraw %}{% endif %}

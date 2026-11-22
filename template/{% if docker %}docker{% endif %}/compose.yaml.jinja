@@ -1,0 +1,95 @@
+# Runs the image as in production: docker compose -f docker/compose.yaml up --build --wait
+# A TLS proxy such as Caddy forwards to 127.0.0.1:8000 and sends X-Forwarded-Proto.
+# docker/.env holds the settings and secrets and is ignored by git. It needs at least:
+#   SECRET_KEY=<a long random value>
+#   ALLOWED_HOSTS=<the site's host name>
+{% if site_url %}
+#   SITE_URL=https://<the site's host name>
+{% endif %}
+{% if "magic_link" in login %}
+#   EMAIL_URL=smtp://...?_default_from_email=<sender address>
+{% endif %}
+{% if "microsoft" in login %}
+#   ENTRA_TENANT_ID, ENTRA_CLIENT_ID and ENTRA_CLIENT_SECRET from the app registration
+{% endif %}
+{% if database == "postgresql" %}
+#   POSTGRES_PASSWORD=<URL-safe random value, such as from openssl rand -hex 32>
+#   It goes into DATABASE_URL below unencoded, so @ / : # ? % would break it.
+{% endif %}
+name: {{ project_name }}
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: {{ project_name }}:latest
+  # The smoke test points APP_ENV_FILE at throwaway settings.
+  env_file: ${APP_ENV_FILE:-.env}
+  restart: unless-stopped
+{% if database == "postgresql" %}
+  environment:
+    DATABASE_URL: postgres://{{ project_name }}:${POSTGRES_PASSWORD:?set it in docker/.env}@db:5432/{{ project_name }}
+{% else %}
+  # One named volume for every process: they share the SQLite file and the scheduler's lock.
+  volumes:
+    - app-data:/data
+{% endif %}
+
+services:
+{% if database == "postgresql" %}
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in docker/.env}
+      POSTGRES_USER: {{ project_name }}
+      POSTGRES_DB: {{ project_name }}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # Over TCP: on first start a temporary server listens on the socket alone, then restarts.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "{{ project_name }}", "-d", "{{ project_name }}"]
+      interval: 5s
+      retries: 10
+
+{% endif %}
+  web:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"
+{% if database == "postgresql" %}
+    depends_on:
+      db:
+        condition: service_healthy
+{% endif %}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
+      interval: 10s
+      # check --deploy and migrate run before the server starts.
+      start_period: 30s
+{% if background_tasks %}
+
+  worker:
+    <<: *app
+    command: worker
+    # The worker finishes its current task on SIGTERM. Set this above the longest task.
+    stop_grace_period: 60s
+    depends_on:
+      # Only the web process migrates.
+      web:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app
+    command: scheduler
+    depends_on:
+      web:
+        condition: service_healthy
+{% endif %}
+
+volumes:
+{% if database == "postgresql" %}
+  postgres-data:
+{% else %}
+  app-data:
+{% endif %}

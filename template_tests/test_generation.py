@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 from conftest import REPO_ROOT
 from copier import run_copy
 
@@ -453,6 +454,52 @@ def test_sqlite_leaves_out_everything_postgresql(generate):
     answers = (project / ".copier-answers.yml").read_text().splitlines()
     assert "database: sqlite" in answers
     assert "live_updates: true" not in answers
+
+
+def load_compose(project: Path) -> dict:
+    return yaml.safe_load((project / "docker/compose.yaml").read_text())
+
+
+def test_compose_runs_every_process_against_postgresql(generate):
+    compose = load_compose(generate("acme_shop", login=["magic_link"]))
+    assert set(compose["services"]) == {"db", "web", "worker", "scheduler"}
+    assert compose["services"]["db"]["image"].startswith("postgres:")
+    assert compose["services"]["worker"]["command"] == "worker"
+    assert compose["services"]["scheduler"]["command"] == "scheduler"
+    assert "healthcheck" in compose["services"]["web"]
+
+
+def test_compose_shares_one_sqlite_volume(generate):
+    compose = load_compose(generate("acme_shop", database="sqlite"))
+    assert set(compose["services"]) == {"web", "worker", "scheduler"}
+    for service in compose["services"].values():
+        assert "app-data:/data" in service["volumes"]
+
+
+def test_compose_without_background_tasks_runs_the_web_process_only(generate):
+    compose = load_compose(generate("acme_shop", background_tasks=False))
+    assert set(compose["services"]) == {"db", "web"}
+
+
+def test_ci_starts_the_compose_example(generate):
+    project = generate("acme_shop", login=["microsoft", "magic_link"])
+    assert "run: docker/smoke-test.sh" in (project / CI_WORKFLOW).read_text()
+    script = project / "docker/smoke-test.sh"
+    assert os.access(script, os.X_OK)
+    text = script.read_text()
+    assert "up --no-build --detach --wait" in text
+    # Throwaway settings and a project name of its own: docker/.env and a deployment stay intact.
+    assert "--project-name acme_shop-smoke" in text
+    assert ">.env" not in text
+    assert "/health/ready" in text
+    # Variables the answers' deploy checks or settings need for a clean web start.
+    for variable in ("SITE_URL", "EMAIL_URL", "ENTRA_CLIENT_SECRET", "INTERNAL_EMAIL_DOMAINS"):
+        assert variable in text
+
+
+def test_the_image_leaves_out_compose_secrets(generate):
+    ignored = (generate("acme_shop") / ".dockerignore").read_text().splitlines()
+    assert "**/.env" in ignored
 
 
 def test_sqlite_stays_out_of_the_image(generate):

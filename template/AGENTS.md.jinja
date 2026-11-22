@@ -297,7 +297,11 @@ Before that it runs `check --deploy`, which stops the start on errors but not on
 {% endraw %}{% if database == "sqlite" %}{% raw %}The image keeps the SQLite file in the volume `/data`, set by `SQLITE_PATH`.
 Every container, one-off commands included, mounts the same named volume, such as `-v app-data:/data`.
 Without it, each container gets an empty database of its own.
-{% endraw %}{% endif %}{% raw %}{% endraw %}{% else %}{% raw %}`manage.py serve` runs granian over ASGI on port 8000.
+{% endraw %}{% endif %}{% raw %}`docker/compose.yaml` runs the image with every process the project needs.
+It reads its settings and secrets from `docker/.env`, which git and the image leave out.
+Its header lists the variables the deploy checks require.
+CI starts it through `docker/smoke-test.sh` and checks `/health/ready` and {% endraw %}{% if login %}the login page{% else %}`/`{% endif %}{% raw %}.
+{% endraw %}{% else %}{% raw %}`manage.py serve` runs granian over ASGI on port 8000.
 Before each start, run `manage.py check --deploy --fail-level ERROR`, then `manage.py migrate`.
 The check fails on errors only; Django's own deploy checks are warnings.
 {% endraw %}{% endif %}{% raw %}Deployments run behind Caddy, which terminates TLS and compresses responses.

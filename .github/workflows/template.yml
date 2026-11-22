@@ -31,15 +31,16 @@ jobs:
       # and SQLite.
       # docker stays on except in the all-off row. A string, because null == false holds in expressions.
       # daisy_ui runs only in the all-on row; it changes one setting and the body classes.
+      # smoke builds the image and starts the compose example, once per database.
       matrix:
         include:
-          - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]', daisy_ui: true }
+          - { live_updates: true, background_tasks: true, login: '["password","microsoft","magic_link"]', daisy_ui: true, smoke: true }
           - { live_updates: false, background_tasks: false, login: "[]", docker: "false", license: proprietary }
           - { live_updates: true, background_tasks: false, login: "[]" }
           - { live_updates: false, background_tasks: true, login: "[]", license: AGPL-3.0-or-later }
           - { live_updates: false, background_tasks: false, login: '["password"]' }
           - { live_updates: false, background_tasks: false, login: '["microsoft","magic_link"]' }
-          - { database: sqlite, live_updates: false, background_tasks: true, login: '["password","magic_link"]' }
+          - { database: sqlite, live_updates: false, background_tasks: true, login: '["password","magic_link"]', smoke: true }
     services:
       postgres:
         image: postgres:18
@@ -110,3 +111,9 @@ jobs:
         run: uv run python -m playwright install --with-deps chromium
       - name: Browser tests
         run: mise run test-browser
+      - name: Build the image
+        if: matrix.smoke
+        run: docker build --tag acme_shop:latest --file docker/Dockerfile .
+      - name: Smoke test the compose example
+        if: matrix.smoke
+        run: docker/smoke-test.sh

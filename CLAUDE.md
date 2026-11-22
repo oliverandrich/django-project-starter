@@ -33,6 +33,7 @@ The `.jinja` files are not valid Python, so ruff and basedpyright check them onl
 generated project. The template workflow does that for seven answer combinations: all on,
 all off, each part except `daisy_ui` alone and SQLite.
 `docker` stays on in every combination but all off.
+The all-on and SQLite combinations also build the image and run `docker/smoke-test.sh`.
 
 Two workflows exist:
 
