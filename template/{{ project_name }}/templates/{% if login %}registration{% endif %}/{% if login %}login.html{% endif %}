@@ -6,7 +6,9 @@
 
 {% block card %}
     {% if "microsoft" in login_methods %}
-        <a class="rounded-md bg-blue-600 px-4 py-2 text-center font-medium text-white hover:bg-blue-700"
+        {# Not boosted: htmx would fetch the redirect to Microsoft instead of following it. #}
+        <a hx-boost="false"
+           class="rounded-md bg-blue-600 px-4 py-2 text-center font-medium text-white hover:bg-blue-700"
            href="{% url 'django_auth_adfs:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
             {% translate "Log in with Microsoft" %}
         </a>
