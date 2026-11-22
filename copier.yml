@@ -6,6 +6,10 @@ _subdirectory: template
 _skip_if_exists:
   - README.md
 _min_copier_version: "9.4"
+# Adds the SPDX marker of the chosen license to every source file. copier copy needs --trust.
+_tasks:
+  - command: [".mise/tasks/license", "--fix"]
+    when: "{{ license != 'proprietary' }}"
 # A line holding only a block tag such as {% if %} disappears from the output.
 _envops:
   keep_trailing_newline: true

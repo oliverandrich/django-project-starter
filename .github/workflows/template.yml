@@ -81,7 +81,7 @@ jobs:
       - name: Generate a project from this checkout
         working-directory: template
         run: >-
-          uvx copier copy --defaults --vcs-ref HEAD
+          uvx copier copy --trust --defaults --vcs-ref HEAD
           --data project_name=acme_shop --data live_updates=${{ matrix.live_updates }}
           --data background_tasks=${{ matrix.background_tasks }}
           ${{ matrix.database && format('--data database={0}', matrix.database) || '' }}

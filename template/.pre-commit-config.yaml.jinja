@@ -33,6 +33,14 @@ repos:
 
   - repo: local
     hooks:
+{% if license != "proprietary" %}
+      - id: license
+        name: license markers
+        entry: .mise/tasks/license
+        language: script
+        pass_filenames: false
+        always_run: true
+{% endif %}
       # Runs from the project venv, so it sees the installed packages and the version uv.lock pins.
       - id: basedpyright
         name: basedpyright

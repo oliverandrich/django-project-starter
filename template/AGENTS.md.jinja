@@ -37,12 +37,25 @@ mise run shell           # shell_plus
 {% endraw %}{% if background_tasks %}{% raw %}mise run worker          # run queued tasks (database task backend only)
 mise run scheduler       # enqueue @cron tasks on their schedule
 {% endraw %}{% endif %}{% raw %}mise run manage <args>   # any other manage.py command
-mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade
-mise run test            # test suite with coverage, without the browser tests
+{% endraw %}{% if license != "proprietary" %}{% raw %}mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade, license markers
+mise run license --fix   # add the SPDX marker to files that lack it
+{% endraw %}{% else %}{% raw %}mise run lint            # pre-commit: ruff, basedpyright, django-upgrade, djade
+{% endraw %}{% endif %}{% raw %}mise run test            # test suite with coverage, without the browser tests
 mise run test-browser    # browser tests in Chromium
 ```
 
-## Done means checked
+{% endraw %}{% if license != "proprietary" %}{% raw %}## License markers
+
+Source files name their license in an SPDX line near the top: `SPDX-License-Identifier: {% endraw %}{{ license }}{% raw %}`.
+A copied file keeps its license statement only through this line.
+`.mise/tasks/license` checks the package, `tests/`, `assets/js/`, `.mise/tasks/`{% endraw %}{% if docker %}, `docker/`{% endif %}{% raw %} and `manage.py`.
+The line follows a shebang or a build directive.
+Django templates carry it as a `{# #}` comment in front of their first line, so it renders nothing.
+Files of a type without comments, such as JSON or images, carry none.
+pre-commit runs the check; `mise run license --fix` adds missing lines, also to new migrations.
+After a change of the license, `--fix` replaces the license each line names.
+
+{% endraw %}{% endif %}{% raw %}## Done means checked
 
 Run `mise run lint`, `mise run test` and `mise run test-browser` before calling a change done.
 All three run in CI on every pull request.

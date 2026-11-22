@@ -657,6 +657,7 @@ def test_a_second_run_leaves_the_readme_alone(generate, template_dir):
         defaults=True,
         overwrite=True,
         quiet=True,
+        unsafe=True,
     )
     assert (project / "README.md").read_text() == "# Acme Shop\n\nOur own description.\n"
 
@@ -718,3 +719,103 @@ def test_daisy_ui_answer(generate, answers, daisy_ui):
     assert ("daisyUI" in (project / "AGENTS.md").read_text()) is daisy_ui
     base = (project / "acme_shop/templates/base.html").read_text()
     assert (BODY_COLORS in base) is not daisy_ui
+
+
+# The project's own source files; vendored code and translation catalogues have their own terms.
+LICENSED = ("acme_shop", "tests", "docker", "assets/js", ".mise/tasks", "manage.py")
+
+
+def own_files(project: Path) -> list[Path]:
+    files = []
+    for entry in LICENSED:
+        path = project / entry
+        candidates = [path] if path.is_file() else path.rglob("*")
+        files += [
+            file
+            for file in candidates
+            if file.is_file()
+            and not {"__pycache__", "vendor", "locale"} & set(file.parts)
+            and file.name != ".gitkeep"
+        ]
+    return files
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [
+        {"license": "MIT", "login": LOGINS},
+        {"license": "AGPL-3.0-or-later", "database": "sqlite", "login": ["magic_link"]},
+    ],
+)
+def test_every_own_file_names_its_license(generate, answers):
+    project = generate("acme_shop", **answers)
+    marker = f"SPDX-License-Identifier: {answers['license']}"
+    files = own_files(project)
+    assert len(files) > 50, "the test is not looking anywhere"
+    unmarked = [
+        str(file.relative_to(project))
+        for file in files
+        if marker not in "\n".join(file.read_text().splitlines()[:5])
+    ]
+    assert unmarked == []
+    # The first line stays where an interpreter or BuildKit reads it.
+    assert (project / "docker/entrypoint.sh").read_text().startswith("#!/bin/sh\n# SPDX")
+    assert (project / "docker/Dockerfile").read_text().startswith("# syntax=")
+    assert "license" in (project / ".pre-commit-config.yaml").read_text()
+
+
+def test_a_proprietary_project_names_no_license(generate):
+    project = generate("acme_shop", license="proprietary")
+    marked = [f for f in own_files(project) if "SPDX" in "\n".join(f.read_text().splitlines()[:5])]
+    assert marked == []
+    assert "id: license" not in (project / ".pre-commit-config.yaml").read_text()
+
+
+def test_the_license_check_reports_an_unmarked_file(generate):
+    project = generate("acme_shop", license="MIT")
+    check = [str(project / ".mise/tasks/license")]
+    assert subprocess.run(check, cwd=project, capture_output=True).returncode == 0
+    (project / "acme_shop/new_module.py").write_text("VALUE = 1\n")
+    result = subprocess.run(check, cwd=project, capture_output=True, text=True)
+    assert result.returncode == 1
+    assert "acme_shop/new_module.py" in result.stdout
+    fixed = subprocess.run([*check, "--fix"], cwd=project, capture_output=True)
+    assert fixed.returncode == 0
+    assert (project / "acme_shop/new_module.py").read_text() == (
+        "# SPDX-License-Identifier: MIT\nVALUE = 1\n"
+    )
+
+
+def test_a_template_marker_adds_no_line_to_the_output(generate):
+    """The newline after a {# #} comment would render, so the marker shares the first line."""
+    project = generate("acme_shop", license="MIT", login=["magic_link"])
+    mail = (project / "acme_shop/templates/registration/magic_link_email.txt").read_text()
+    assert mail.startswith("{# SPDX-License-Identifier: MIT #}{% ")
+    base = (project / "acme_shop/templates/base.html").read_text()
+    assert base.startswith("{# SPDX-License-Identifier: MIT #}{% load ")
+
+
+def test_the_license_check_skips_files_without_comments(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "acme_shop/fixtures").mkdir()
+    (project / "acme_shop/fixtures/initial.json").write_text("[]\n")
+    (project / "acme_shop/static").mkdir()
+    (project / "acme_shop/static/robots.txt").write_text("User-agent: *\n")
+    check = [str(project / ".mise/tasks/license"), "--fix"]
+    assert subprocess.run(check, cwd=project, capture_output=True).returncode == 0
+    assert (project / "acme_shop/static/robots.txt").read_text() == "User-agent: *\n"
+
+
+def test_a_changed_license_replaces_the_marker(generate):
+    project = generate("acme_shop", license="MIT")
+    pyproject = project / "pyproject.toml"
+    agpl = pyproject.read_text().replace('license = "MIT"', 'license = "AGPL-3.0-or-later"')
+    pyproject.write_text(agpl)
+    check = [str(project / ".mise/tasks/license")]
+    assert subprocess.run(check, cwd=project, capture_output=True).returncode == 1
+    assert subprocess.run([*check, "--fix"], cwd=project, capture_output=True).returncode == 0
+    module = (project / "acme_shop/health.py").read_text()
+    assert module.startswith("# SPDX-License-Identifier: AGPL-3.0-or-later\n")
+    assert "MIT" not in module.splitlines()[1]
+    base = (project / "acme_shop/templates/base.html").read_text()
+    assert base.startswith("{# SPDX-License-Identifier: AGPL-3.0-or-later #}{% load ")

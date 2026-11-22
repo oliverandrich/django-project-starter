@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+#MISE description="Check that every source file states the project's license; --fix adds the marker"
+#
+# A file copied out of the repository keeps its license statement only through its marker.
+# pyproject.toml names the license. Without one, the project is proprietary and needs none.
+# The check covers whole directories, not a list of files.
+# Files of a type without comments, such as JSON or images, carry no marker and are skipped.
+# Third-party code under assets/vendor and the translation catalogues are excluded.
+# copier.yml runs `--fix` after `copier copy` and `copier update`; pre-commit runs the check.
+set -euo pipefail
+
+# Sets comment to the text that carries the marker, by file type, and joined to true when it
+# shares the first line. Empty for a type without comments.
+# Builtins only: a subshell per file would make the run over a whole project slow.
+set_comment() {
+    joined=false
+    case "$1" in
+    # Django templates: the comment renders nothing, but a newline after it would render.
+    */templates/*.html | */templates/*.txt)
+        comment="{# $marker #}"
+        joined=true
+        return
+        ;;
+    esac
+    case "${1##*/}" in
+    *.py | *.sh | *.yaml | *.yml) comment="# $marker" ;;
+    *.js | *.mjs) comment="// $marker" ;;
+    *.css) comment="/* $marker */" ;;
+    *.*) comment="" ;;
+    # No extension: shell tasks and the image's build file, both commented with #.
+    *) comment="# $marker" ;;
+    esac
+}
+
+# Writes the marker at the top: after a shebang or a BuildKit directive, and in front of the
+# first line of a Django template.
+add_marker() {
+    local file="$1" first=""
+    IFS= read -r first <"$file" || true
+    case "$first" in
+    '#!'* | '# syntax='* | '# escape='* | '# check='*)
+        { printf '%s\n%s\n' "$first" "$comment"; tail -n +2 "$file"; } >"$scratch"
+        ;;
+    *)
+        if $joined; then
+            { printf '%s' "$comment"; cat "$file"; } >"$scratch"
+        else
+            { printf '%s\n' "$comment"; cat "$file"; } >"$scratch"
+        fi
+        ;;
+    esac
+    # Through cat, so the file keeps its permissions.
+    cat "$scratch" >"$file"
+}
+
+# Replaces the license a marker on line $2 names, such as after a change of the license.
+replace_marker() {
+    sed "$2s/SPDX-License-Identifier: [^[:space:]]*/$marker/" "$1" >"$scratch"
+    cat "$scratch" >"$1"
+}
+
+# The script marks itself too, and bash reads a script while it runs.
+# main is parsed whole before it starts, so the edit cannot shift the code still to come.
+main() {
+    # The project root from the script's own place: Copier runs it with the caller's environment.
+    cd "$(dirname "$0")/../.."
+
+    license="$(sed -n 's/^license = "\(.*\)"$/\1/p' pyproject.toml)"
+    if [ -z "$license" ]; then
+        echo "pyproject.toml names no license, so no file needs a marker."
+        return 0
+    fi
+    package="$(sed -n 's/^name = "\(.*\)"$/\1/p' pyproject.toml)"
+    marker="SPDX-License-Identifier: $license"
+    fix=false
+    [ "${1:-}" = "--fix" ] && fix=true
+
+    paths=("$package" tests assets/js .mise/tasks manage.py)
+    [ -d docker ] && paths+=(docker)
+
+    scratch="$(mktemp)"
+    trap 'rm -f "$scratch"' EXIT
+    missing=0
+    while IFS= read -r -d '' file; do
+        file="${file#./}"
+        set_comment "$file"
+        [ -n "$comment" ] || continue
+        # The license an SPDX line in the first five lines names, read by the shell itself.
+        named="" number=0
+        while [ "$number" -lt 5 ] && IFS= read -r line; do
+            number=$((number + 1))
+            case "$line" in
+            *SPDX-License-Identifier:*)
+                named="${line#*SPDX-License-Identifier: }"
+                named="${named%%[[:space:]]*}"
+                break
+                ;;
+            esac
+        done <"$file"
+        [ "$named" = "$license" ] && continue
+        if $fix; then
+            if [ -n "$named" ]; then
+                replace_marker "$file" "$number"
+            else
+                add_marker "$file"
+            fi
+            continue
+        fi
+        echo "  $file${named:+ (names $named)}"
+        missing=$((missing + 1))
+    done < <(find "${paths[@]}" -type f \
+        -not -path '*/__pycache__/*' -not -path '*/vendor/*' -not -path '*/locale/*' \
+        -not -name '.gitkeep' -not -name '.DS_Store' -print0)
+
+    if [ "$missing" -gt 0 ]; then
+        echo ""
+        echo "$missing file(s) do not name $license as their license."
+        echo "Run 'mise run license --fix', or add: $marker"
+        exit 1
+    fi
+}
+
+# One line: bash has read it before main edits this file.
+main "$@"; exit "$?"

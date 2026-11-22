@@ -52,6 +52,8 @@ def generate(template_dir: Path, tmp_path: Path):
             data={"project_name": project_name, "author": "Jane Doe", **answers},
             defaults=True,
             quiet=True,
+            # copier.yml runs .mise/tasks/license --fix after generation.
+            unsafe=True,
         )
         return destination
 

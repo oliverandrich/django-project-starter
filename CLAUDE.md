@@ -16,6 +16,9 @@ This repository is a [Copier](https://copier.readthedocs.io/) template.
 - `site_url` in `copier.yml` is computed from `login` and never asked (`when: false`).
   Templates test it for `SITE_URL` and its check, not the login method itself.
 - `template/` holds the generated project. Nothing outside it reaches a project.
+- `_tasks` in `copier.yml` runs `.mise/tasks/license --fix` after generation, unless proprietary.
+  Copier needs `--trust` for that, and the template tests pass `unsafe=True`.
+  Template files therefore carry no SPDX line themselves.
 - `licenses/<license>.txt` holds the license texts. The LICENSE template includes the chosen one.
 - `_skip_if_exists` lists files a project owns after generation, such as `README.md`.
   `copier update` never touches them.

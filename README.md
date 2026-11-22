@@ -70,12 +70,14 @@ It leaves out live updates, which need PostgreSQL's LISTEN/NOTIFY.
 `--data docker=false` leaves out the Dockerfile, the entrypoint and the Docker job in CI.
 `--data license=AGPL-3.0-or-later` picks the AGPL; the default is `MIT`.
 `--data license=proprietary` writes no LICENSE file and marks `pyproject.toml` private.
+With MIT or the AGPL, the project's source files start with an `SPDX-License-Identifier` line.
 `--data author="Jane Doe"` names the copyright holder; `copyright_year` defaults to the current year.
 
 ## Update
 
 `.copier-answers.yml` records the template version and the answers.
-`uvx copier update` merges later changes of the template into the project.
+`uvx copier update --trust` merges later changes of the template into the project.
+`--trust` lets Copier run `.mise/tasks/license --fix` afterwards, which marks new files with the license.
 Run it on a clean working tree; conflicts show up as `.rej` files or conflict markers.
 It leaves the project's `README.md` alone.
 On its next update, a project generated before the license question defaults to `MIT`.
