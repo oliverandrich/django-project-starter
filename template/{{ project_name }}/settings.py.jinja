@@ -330,7 +330,8 @@ email_url = import_module("{{ project_name }}.email_url")
 vars().update(email_url.settings(env.str("EMAIL_URL", default="console:")))
 {% if "magic_link" not in login %}
 # The project sends no email, so Django's mail.E001 would stop the start without EMAIL_URL.
-# Remove the entry once the project sends email.
+# Once the project sends email, remove the entry and set EMAIL_URL to a mail server in
+# production: mail.E001 then stops a start with a development backend such as console:.
 SILENCED_SYSTEM_CHECKS = ["mail.E001"]
 {% endif %}
 

@@ -82,7 +82,9 @@ yarn-error.log
 # django-tailwind-cli
 .django_tailwind_cli
 assets/css/tailwind.css
+{% if database == "sqlite" %}
 
 # SQLite databases, their WAL files and the scheduler's lock file
 *.sqlite3*
 *.crontask.lock
+{% endif %}

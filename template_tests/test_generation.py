@@ -520,9 +520,19 @@ def test_the_image_leaves_out_compose_secrets(generate):
 
 def test_sqlite_stays_out_of_the_image(generate):
     """A developer's database holds users and password hashes; COPY . /app would ship it."""
-    ignored = (generate("acme_shop", database="sqlite") / ".dockerignore").read_text().splitlines()
-    assert "*.sqlite3*" in ignored
-    assert "*.crontask.lock" in ignored
+    project = generate("acme_shop", database="sqlite")
+    for name in (".gitignore", ".dockerignore"):
+        ignored = (project / name).read_text().splitlines()
+        assert "*.sqlite3*" in ignored
+        assert "*.crontask.lock" in ignored
+
+
+def test_postgresql_ignores_no_sqlite_files(generate):
+    project = generate("acme_shop")
+    for name in (".gitignore", ".dockerignore"):
+        text = (project / name).read_text()
+        assert "sqlite" not in text.lower()
+        assert "crontask.lock" not in text
 
 
 def test_sqlite_refuses_live_updates(generate):

@@ -1,6 +1,7 @@
 name: Release
 
-# A tag such as v1.2.0 publishes the image to ghcr.io as 1.2.0 and 1.2.
+# A tag such as v1.2.0 publishes the image to ghcr.io as 1.2.0, 1.2 and latest.
+# metadata-action adds latest for semver tags; a pre-release such as v1.3.0-rc.1 gets only 1.3.0-rc.1.
 on:
   push:
     tags: ["v[0-9]*"]
