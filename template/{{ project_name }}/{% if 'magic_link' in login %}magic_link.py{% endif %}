@@ -134,7 +134,7 @@ def check_settings(app_configs, **kwargs) -> list[checks.CheckMessage]:
         errors.append(
             checks.Error(
                 f"DEFAULT_FROM_EMAIL is Django's default, {global_settings.DEFAULT_FROM_EMAIL}.",
-                hint="Add ?_default_from_email=<address> to EMAIL_URL.",
+                hint="Set DEFAULT_FROM_EMAIL, or add ?_default_from_email=<address> to EMAIL_URL.",
                 id="magic_link.E003",
             )
         )

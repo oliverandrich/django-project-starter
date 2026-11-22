@@ -1009,3 +1009,15 @@ def test_a_parent_repository_still_leaves_out_ignored_files(generate, tmp_path):
     add_license_table(project, '[tool.license]\nextra-paths = ["assets/css"]\n')
     assert run_license(project, "--fix").returncode == 0
     assert (project / "assets/css/tailwind.css").read_text() == "body {}\n"
+
+
+def test_toml_files_get_a_marker(generate):
+    project = generate("acme_shop", license="MIT")
+    (project / "extra").mkdir()
+    (project / "extra/ruff.toml").write_text("line-length = 100\n")
+    add_license_table(project, '[tool.license]\nextra-paths = ["extra"]\n')
+    assert "extra/ruff.toml" in run_license(project).stdout
+    assert run_license(project, "--fix").returncode == 0
+    assert (project / "extra/ruff.toml").read_text() == (
+        "# SPDX-License-Identifier: MIT\nline-length = 100\n"
+    )

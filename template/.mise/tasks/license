@@ -47,7 +47,7 @@ def comment_for(path: Path, marker: str) -> tuple[str, str] | None:
         return f"{{# {marker} #}}", ""
     # No suffix: shell tasks and the image's build file, both commented with #.
     # A dotfile without one, such as .prettierrc, is often JSON and is skipped.
-    if path.suffix in {".py", ".sh", ".yaml", ".yml"} or "." not in path.name:
+    if path.suffix in {".py", ".sh", ".toml", ".yaml", ".yml"} or "." not in path.name:
         return f"# {marker}", "\n"
     if path.suffix in {".js", ".mjs"}:
         return f"// {marker}", "\n"

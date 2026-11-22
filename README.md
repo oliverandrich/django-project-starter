@@ -144,12 +144,14 @@ Or when run as a [12-Factor application](https://12factor.net).
 | DATABASE_POOL_MIN_SIZE       | 1; PostgreSQL only                                | settings.py     |
 | DATABASE_URL                 | "postgres:///<project>"; PostgreSQL only          | settings.py     |
 | DEBUG                        | False                                             | settings.py     |
+| DEFAULT_FROM_EMAIL           | ?_default_from_email= in EMAIL_URL                | settings.py     |
 | EMAIL_URL                    | "console:"                                        | settings.py     |
 | EVENTS_RETENTION_HOURS       | 24                                                | settings.py     |
 | INTERNAL_IPS                 | []                                                | settings.py     |
 | LANGUAGE_CODE                | "en"                                              | settings.py     |
 | SECRET_KEY                   |                                                   | settings.py     |
 | SECURE_HSTS_SECONDS          | 0                                                 | settings.py     |
+| SERVER_EMAIL                 | ?_server_email= in EMAIL_URL                      | settings.py     |
 | SITE_URL                     | "http://localhost:8000" in DEBUG; magic_link only | settings.py     |
 | SQLITE_PATH                  | "db.sqlite3" in the project; SQLite only          | settings.py     |
 | TASKS_BACKEND                | "django_tasks_db.DatabaseBackend"                 | settings.py     |

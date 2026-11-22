@@ -1,3 +1,4 @@
+from django.conf import global_settings
 from django.core.mail.backends.smtp import EmailBackend as SMTPBackend
 from django.test import SimpleTestCase
 
@@ -58,6 +59,24 @@ class MailersSettingTest(SimpleTestCase):
         settings = evaluate_settings(EMAIL_URL=url)
         self.assertEqual(settings["SERVER_EMAIL"], "ops@example.com")
         self.assertEqual(settings["DEFAULT_FROM_EMAIL"], "hello@example.com")
+
+
+class SenderSettingTest(SimpleTestCase):
+    URL = "console:?_server_email=ops@example.com&_default_from_email=hello@example.com"
+
+    def test_the_environment_wins_over_the_url(self):
+        settings = evaluate_settings(
+            EMAIL_URL=self.URL,
+            DEFAULT_FROM_EMAIL="shop@example.com",
+            SERVER_EMAIL="alerts@example.com",
+        )
+        self.assertEqual(settings["DEFAULT_FROM_EMAIL"], "shop@example.com")
+        self.assertEqual(settings["SERVER_EMAIL"], "alerts@example.com")
+
+    def test_without_either_django_keeps_its_defaults(self):
+        settings = evaluate_settings()
+        self.assertEqual(settings["DEFAULT_FROM_EMAIL"], global_settings.DEFAULT_FROM_EMAIL)
+        self.assertEqual(settings["SERVER_EMAIL"], global_settings.SERVER_EMAIL)
 
     def test_unknown_scheme_is_rejected(self):
         with self.assertRaisesMessage(ValueError, "EMAIL_URL"):

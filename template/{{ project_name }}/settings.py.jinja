@@ -15,6 +15,7 @@ import structlog
 {% if database == "sqlite" %}
 from dj_lite import sqlite_config
 {% endif %}
+from django.conf import global_settings
 from django.utils.csp import CSP
 from django.utils.translation import gettext_lazy as _
 from environs import Env, validate
@@ -328,7 +329,16 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/6.1/topics/email/
 email_url = import_module("{{ project_name }}.email_url")
 vars().update(email_url.settings(env.str("EMAIL_URL", default="console:")))
+# A sender address in the environment wins over the URL's ?_default_from_email= or ?_server_email=.
+DEFAULT_FROM_EMAIL = env.str(
+    "DEFAULT_FROM_EMAIL",
+    default=vars().get("DEFAULT_FROM_EMAIL", global_settings.DEFAULT_FROM_EMAIL),
+)
+SERVER_EMAIL = env.str(
+    "SERVER_EMAIL", default=vars().get("SERVER_EMAIL", global_settings.SERVER_EMAIL)
+)
 {% if "magic_link" not in login %}
+
 # The project sends no email, so Django's mail.E001 would stop the start without EMAIL_URL.
 # Once the project sends email, remove the entry and set EMAIL_URL to a mail server in
 # production: mail.E001 then stops a start with a development backend such as console:.
